@@ -19449,6 +19449,11 @@ namespace GeneralLabelerStation
                             alarm = string.Format("Z{0}", i + 1);
                             break;
                         }
+
+                        if(this.R_RunParamMap[i].bAxisServoWarning)
+                        {
+                            alarm = string.Format($"R{i + 1}");break;
+                        }
                     }
 
                     if (alarm != string.Empty)
