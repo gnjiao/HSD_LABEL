@@ -64,7 +64,7 @@ namespace GeneralLabelerStation.Param
         /// 轴 停止运动
         /// </summary>
         /// <returns></returns>
-        public virtual short Stop() { return this.StopAxis(); }
+        public virtual short Stop(bool emg = true) { return this.StopAxis(emg); }
 
         /// <summary>
         /// 轴运动到一个位置直到停止

@@ -1488,15 +1488,15 @@
             this.folderBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
             this.serialPort_DownLight = new System.IO.Ports.SerialPort(this.components);
             this.serialPort_UpLight = new System.IO.Ports.SerialPort(this.components);
-            this.pLanguage = new System.Windows.Forms.PictureBox();
-            this.pMode_SysSet = new System.Windows.Forms.PictureBox();
-            this.bExit = new System.Windows.Forms.Button();
-            this.pMode_Manual = new System.Windows.Forms.PictureBox();
-            this.pMode_Login = new System.Windows.Forms.PictureBox();
-            this.pMode_Calibration = new System.Windows.Forms.PictureBox();
-            this.pMode_Run = new System.Windows.Forms.PictureBox();
-            this.pMode_PASTE = new System.Windows.Forms.PictureBox();
             this.panel23 = new System.Windows.Forms.Panel();
+            this.pLanguage = new System.Windows.Forms.PictureBox();
+            this.bExit = new System.Windows.Forms.Button();
+            this.pMode_SysSet = new System.Windows.Forms.PictureBox();
+            this.pMode_Calibration = new System.Windows.Forms.PictureBox();
+            this.pMode_PASTE = new System.Windows.Forms.PictureBox();
+            this.pMode_Manual = new System.Windows.Forms.PictureBox();
+            this.pMode_Run = new System.Windows.Forms.PictureBox();
+            this.pMode_Login = new System.Windows.Forms.PictureBox();
             this.tabControl_Main.SuspendLayout();
             this.tabPage1.SuspendLayout();
             this.gbMachineState.SuspendLayout();
@@ -1741,14 +1741,14 @@
             this.panel16.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.ntCamShutter)).BeginInit();
             this.statusStrip1.SuspendLayout();
+            this.panel23.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pLanguage)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pMode_SysSet)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pMode_Manual)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pMode_Login)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pMode_Calibration)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pMode_Run)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pMode_PASTE)).BeginInit();
-            this.panel23.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pMode_Manual)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pMode_Run)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pMode_Login)).BeginInit();
             this.SuspendLayout();
             // 
             // tabControl_Main
@@ -12323,70 +12323,6 @@
             this.bgWorker_Cam.ProgressChanged += new System.ComponentModel.ProgressChangedEventHandler(this.bgWorker_Cam_ProgressChanged);
             this.bgWorker_Cam.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(this.bgWorker_Cam_RunWorkerCompleted);
             // 
-            // pLanguage
-            // 
-            this.pLanguage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            resources.ApplyResources(this.pLanguage, "pLanguage");
-            this.pLanguage.Name = "pLanguage";
-            this.pLanguage.TabStop = false;
-            this.pLanguage.Click += new System.EventHandler(this.pLanguage_Click);
-            // 
-            // pMode_SysSet
-            // 
-            this.pMode_SysSet.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            resources.ApplyResources(this.pMode_SysSet, "pMode_SysSet");
-            this.pMode_SysSet.Name = "pMode_SysSet";
-            this.pMode_SysSet.TabStop = false;
-            this.pMode_SysSet.Click += new System.EventHandler(this.pMode_Set_Click);
-            // 
-            // bExit
-            // 
-            this.bExit.BackColor = System.Drawing.Color.Transparent;
-            resources.ApplyResources(this.bExit, "bExit");
-            this.bExit.Name = "bExit";
-            this.bExit.UseVisualStyleBackColor = false;
-            this.bExit.Click += new System.EventHandler(this.bExit_Click);
-            // 
-            // pMode_Manual
-            // 
-            this.pMode_Manual.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            resources.ApplyResources(this.pMode_Manual, "pMode_Manual");
-            this.pMode_Manual.Name = "pMode_Manual";
-            this.pMode_Manual.TabStop = false;
-            this.pMode_Manual.Click += new System.EventHandler(this.pMode_Feeder_Click);
-            // 
-            // pMode_Login
-            // 
-            this.pMode_Login.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            resources.ApplyResources(this.pMode_Login, "pMode_Login");
-            this.pMode_Login.Name = "pMode_Login";
-            this.pMode_Login.TabStop = false;
-            this.pMode_Login.Click += new System.EventHandler(this.pMode_Login_Click);
-            // 
-            // pMode_Calibration
-            // 
-            this.pMode_Calibration.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            resources.ApplyResources(this.pMode_Calibration, "pMode_Calibration");
-            this.pMode_Calibration.Name = "pMode_Calibration";
-            this.pMode_Calibration.TabStop = false;
-            this.pMode_Calibration.Click += new System.EventHandler(this.pMode_Calibration_Click);
-            // 
-            // pMode_Run
-            // 
-            this.pMode_Run.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            resources.ApplyResources(this.pMode_Run, "pMode_Run");
-            this.pMode_Run.Name = "pMode_Run";
-            this.pMode_Run.TabStop = false;
-            this.pMode_Run.Click += new System.EventHandler(this.pMode_Run_Click);
-            // 
-            // pMode_PASTE
-            // 
-            this.pMode_PASTE.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            resources.ApplyResources(this.pMode_PASTE, "pMode_PASTE");
-            this.pMode_PASTE.Name = "pMode_PASTE";
-            this.pMode_PASTE.TabStop = false;
-            this.pMode_PASTE.Click += new System.EventHandler(this.pMode_Program_Click);
-            // 
             // panel23
             // 
             this.panel23.Controls.Add(this.lSafeDoorEN);
@@ -12406,6 +12342,70 @@
             this.panel23.Controls.Add(this.pMode_Login);
             resources.ApplyResources(this.panel23, "panel23");
             this.panel23.Name = "panel23";
+            // 
+            // pLanguage
+            // 
+            this.pLanguage.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            resources.ApplyResources(this.pLanguage, "pLanguage");
+            this.pLanguage.Name = "pLanguage";
+            this.pLanguage.TabStop = false;
+            this.pLanguage.Click += new System.EventHandler(this.pLanguage_Click);
+            // 
+            // bExit
+            // 
+            this.bExit.BackColor = System.Drawing.Color.Transparent;
+            resources.ApplyResources(this.bExit, "bExit");
+            this.bExit.Name = "bExit";
+            this.bExit.UseVisualStyleBackColor = false;
+            this.bExit.Click += new System.EventHandler(this.bExit_Click);
+            // 
+            // pMode_SysSet
+            // 
+            this.pMode_SysSet.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            resources.ApplyResources(this.pMode_SysSet, "pMode_SysSet");
+            this.pMode_SysSet.Name = "pMode_SysSet";
+            this.pMode_SysSet.TabStop = false;
+            this.pMode_SysSet.Click += new System.EventHandler(this.pMode_Set_Click);
+            // 
+            // pMode_Calibration
+            // 
+            this.pMode_Calibration.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            resources.ApplyResources(this.pMode_Calibration, "pMode_Calibration");
+            this.pMode_Calibration.Name = "pMode_Calibration";
+            this.pMode_Calibration.TabStop = false;
+            this.pMode_Calibration.Click += new System.EventHandler(this.pMode_Calibration_Click);
+            // 
+            // pMode_PASTE
+            // 
+            this.pMode_PASTE.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            resources.ApplyResources(this.pMode_PASTE, "pMode_PASTE");
+            this.pMode_PASTE.Name = "pMode_PASTE";
+            this.pMode_PASTE.TabStop = false;
+            this.pMode_PASTE.Click += new System.EventHandler(this.pMode_Program_Click);
+            // 
+            // pMode_Manual
+            // 
+            this.pMode_Manual.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            resources.ApplyResources(this.pMode_Manual, "pMode_Manual");
+            this.pMode_Manual.Name = "pMode_Manual";
+            this.pMode_Manual.TabStop = false;
+            this.pMode_Manual.Click += new System.EventHandler(this.pMode_Feeder_Click);
+            // 
+            // pMode_Run
+            // 
+            this.pMode_Run.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            resources.ApplyResources(this.pMode_Run, "pMode_Run");
+            this.pMode_Run.Name = "pMode_Run";
+            this.pMode_Run.TabStop = false;
+            this.pMode_Run.Click += new System.EventHandler(this.pMode_Run_Click);
+            // 
+            // pMode_Login
+            // 
+            this.pMode_Login.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            resources.ApplyResources(this.pMode_Login, "pMode_Login");
+            this.pMode_Login.Name = "pMode_Login";
+            this.pMode_Login.TabStop = false;
+            this.pMode_Login.Click += new System.EventHandler(this.pMode_Login_Click);
             // 
             // Form_Main
             // 
@@ -12746,14 +12746,14 @@
             ((System.ComponentModel.ISupportInitialize)(this.ntCamShutter)).EndInit();
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();
+            this.panel23.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pLanguage)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.pMode_SysSet)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pMode_Manual)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pMode_Login)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.pMode_Calibration)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pMode_Run)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.pMode_PASTE)).EndInit();
-            this.panel23.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.pMode_Manual)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pMode_Run)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pMode_Login)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 

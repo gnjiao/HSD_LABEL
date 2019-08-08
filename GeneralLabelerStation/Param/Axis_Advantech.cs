@@ -641,6 +641,11 @@ namespace GeneralLabelerStation.Param
             return rtn;
         }
 
+        public short SetSpeedCurve(uint curve = 0)
+        {
+            return (short)Motion.mAcm_SetProperty(ipAxisHandle[AxisNo - 1], (uint)PropertyID.PAR_AxJerk, ref curve, (uint)Marshal.SizeOf(typeof(uint)));
+        }
+
         /// <summary>
         /// 设置轴速度
         /// </summary>

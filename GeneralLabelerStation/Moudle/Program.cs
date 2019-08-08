@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Threading;
 using GeneralLabelerStation.Statistics;
+using System.Diagnostics;
 
 namespace GeneralLabelerStation
 {
@@ -16,11 +17,15 @@ namespace GeneralLabelerStation
         [STAThread]
         static void Main()
         {
-            bool loaded = false;
-            Mutex mutex = new Mutex(false, "AutoLabeler", out loaded);
+            Process[] tProcess = Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName);
 
             //! 保证程序只有一个实例
-            if (loaded)
+            if (tProcess.Length > 1)
+            {
+                MessageBox.Show("已有一个进程在运行!!!");
+                Application.Exit();
+            }
+            else
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
@@ -28,10 +33,6 @@ namespace GeneralLabelerStation
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
                 Application.ThreadException += new System.Threading.ThreadExceptionEventHandler(Application_ThreadException);
                 Application.Run(new Form_Main());
-            }
-            else
-            {
-                Application.Exit();
             }
 
         }

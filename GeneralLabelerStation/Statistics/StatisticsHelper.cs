@@ -442,13 +442,25 @@ namespace GeneralLabelerStation.Statistics
                 }
 
                 if (define == TimeDefine.ChangeLineTime)
-                    {
-                        ControusPCBCount = 0;
-                        ChangeLineFinished = false;
-                    }
+                {
+                    ControusPCBCount = 0;
+                    ChangeLineFinished = false;
+                }
 
                 if (CurRecordTime != TimeDefine.NULL)
                     Times[CurRecordTime].Stop(DateTime.Now);
+
+
+                if (this.CurRecordTime == TimeDefine.DTTime) // DT 5分钟不计算在内
+                {
+                    var item = Times[CurRecordTime].Items.Last();
+                    if ((item.EndTime - item.StartTime).TotalMinutes < 5)
+                    {
+                        Times[CurRecordTime].Items.Remove(item);
+                        Times[TimeDefine.PauseTime].Items.Add(item);
+                    }
+                }
+
                 CurRecordTime = define;
                 Times[CurRecordTime].Start(opterName, DateTime.Now);
             }

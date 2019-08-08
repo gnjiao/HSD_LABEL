@@ -270,6 +270,16 @@
     <Compile Include="Param\R_RunParam.cs" />
     <Compile Include="Param\Z_RunParam.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ServiceMonitor\Base\ServiceItem.cs" />
+    <Compile Include="ServiceMonitor\fmServiceManager.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ServiceMonitor\fmServiceManager.Designer.cs">
+      <DependentUpon>fmServiceManager.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ServiceMonitor\MonitorTimeSpan.cs" />
+    <Compile Include="ServiceMonitor\MonitorTimes.cs" />
+    <Compile Include="ServiceMonitor\SerivceMonitorHelper.cs" />
     <Compile Include="Statistics\fm_Statstics.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -293,6 +303,12 @@
     </Compile>
     <Compile Include="UI\fmCheckXI.Designer.cs">
       <DependentUpon>fmCheckXI.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\fmPasswdCheck.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\fmPasswdCheck.Designer.cs">
+      <DependentUpon>fmPasswdCheck.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\fmSelectPasteRegion.cs">
       <SubType>Form</SubType>
@@ -404,6 +420,9 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="ServiceMonitor\fmServiceManager.resx">
+      <DependentUpon>fmServiceManager.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Statistics\fm_Statstics.resx">
       <DependentUpon>fm_Statstics.cs</DependentUpon>
     </EmbeddedResource>
@@ -412,6 +431,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="UI\fmCheckXI.resx">
       <DependentUpon>fmCheckXI.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="UI\fmPasswdCheck.resx">
+      <DependentUpon>fmPasswdCheck.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="UI\fmSelectPasteRegion.resx">
       <DependentUpon>fmSelectPasteRegion.cs</DependentUpon>
@@ -598,6 +620,7 @@
   <ItemGroup>
     <WCFMetadataStorage Include="Service References\ZDT\" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -1,6 +1,5 @@
 ﻿#define MACHINE_ZDT
 
-//using Advantech.Motion;
 using GeneralLabelerStation.Common;
 using GeneralLabelerStation.Param;
 using GeneralLabelerStation.Statistics;
@@ -8339,12 +8338,9 @@ namespace GeneralLabelerStation
         private short StopAllAxis()
         {
             short rtn = 0;
-            rtn = X.Stop();
-            rtn += Y.Stop();
-            rtn += Turn.Stop();
-            //this.All_ZGoSafe();
-            this.All_RStop();
-            rtn += ConveyorStop();
+            rtn = X.Stop(false);
+            rtn += Y.Stop(false);
+            rtn += Turn.Stop(false);
             return rtn;
         }
 
@@ -8493,6 +8489,8 @@ namespace GeneralLabelerStation
                 Variable.VelMode yVel = new Variable.VelMode();
                 this.X.GetAxisSts();
                 this.Y.GetAxisSts();
+                this.X.SetSpeedCurve(1);
+                this.Y.SetSpeedCurve(1);
 
                 DistVel(x_y_mm, velMode, ref xVel, ref yVel);
                 rtn = X.GoPos(x_y_mm.X, xVel);
@@ -10765,6 +10763,8 @@ namespace GeneralLabelerStation
 
         private void bConfirmOption_Click(object sender, EventArgs e)
         {
+            if (!PasswdCheck()) return;
+
             string s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11;
             string s12, s13, s14, s15, s16, s17, s18, s19;
             double d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11;
@@ -11310,9 +11310,23 @@ namespace GeneralLabelerStation
             this.OpenBtnLight(3);
         }
 
+        public bool PasswdCheck()
+        {
+            fmPasswdCheck fmPasswd = new fmPasswdCheck();
+            if (fmPasswd.ShowDialog() == DialogResult.OK)
+                return true;
+            else
+            {
+                MessageBox.Show("密码错误操作失败!!!");
+                return false;
+            }
+        }
+
         private void bByPASS_Click(object sender, EventArgs e)
         {
-            //在安全位置时候 BYPASS
+            if (!PasswdCheck()) return;
+
+             //在安全位置时候 BYPASS
             if (this.All_ZReachOrg())
             {
                 if (VariableSys.dFlowIN_OUT != 1 && VariableSys.dFlowIN_OUT != 2)
@@ -14137,6 +14151,8 @@ namespace GeneralLabelerStation
 
         private void bSavePasteInfo_Click(object sender, EventArgs e)
         {
+            if (!PasswdCheck()) return;
+
             PasteInfo.BaseAngle = (double)this.baseAngle.Value;
             WriteXls2Data_Paste(Variable.sPath_SYS_PASTE + "\\" + PasteInfo.PasteName);
             bSavePasteInfo.BackColor = Color.GreenYellow;
@@ -14723,6 +14739,8 @@ namespace GeneralLabelerStation
 
         private void bSaveLabelInfo_Click(object sender, EventArgs e)
         {
+            if (!PasswdCheck()) return;
+
             WriteXls2Data_Label(Variable.sPath_SYS_LABEL + "\\" + PasteInfo.PasteName);
             bSaveLabelInfo.BackColor = Color.GreenYellow;
         }
@@ -17394,7 +17412,10 @@ namespace GeneralLabelerStation
         private short FlowIndex_Conveyor = 100;
         private short FlowIndex_Conveyor_Done = 0;
         private string FlowIndex_ConveyorName = "";
-
+        /// <summary>
+        /// 吸标时正在吸取的Feeder
+        /// </summary>
+        private int RUN_FeedrIndex = 0;
         #endregion
 
         #region 吸标动作
@@ -17748,15 +17769,6 @@ namespace GeneralLabelerStation
             }
             else
             {
-                // if (FlowInit == false)
-                // {
-                //     RestartStopwatch();
-                //     FlowInit = true;
-                // }
-                // else
-                // {
-                //     if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iDelay_BeforeXI)
-                //     {
                 SuckTime++;
                 if (SuckTime >= VariableSys.iXIRetry)
                 {
@@ -17898,9 +17910,9 @@ namespace GeneralLabelerStation
                 FlowDoneIndex = FlowIndex;
                 this.FlowIndex = 20012;
             }
-            catch (Exception ex)
+            catch (VisionException ex)
             {
-                this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { $"单拍-取图异常{ex.Source}" });//
+                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"单拍-取图异常 相机掉线!!!" });//
             }
 
             this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]:拍照时间" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
@@ -18876,13 +18888,14 @@ namespace GeneralLabelerStation
             }
             else
             {
-                if ((StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iUpCamDelay)
-                    && AxisReach(RUN_Mark1Point))
+                if (AxisReach(RUN_Mark1Point))
                 {
+                    Thread.Sleep(VariableSys.iUpCamDelay);
                     try
                     {
                         int runPasteIndex = this.GetRUNPasteIndex(pasteIndex);
-
+                        ImageCapture_Up1?.Dispose();
+                        ImageCapture_Up1 = new VisionImage();
                         CameraDefine.Instance[CAM.Top]._Session.Snap(ImageCapture_Up1);
                         FlowInit = false;
                         FlowDoneIndex = FlowIndex;
@@ -19400,7 +19413,79 @@ namespace GeneralLabelerStation
         }
         #endregion
 
-        private int RUN_FeedrIndex = 0;
+        #region 回拍检测
+        public Task<string> CheckLabelTask = null;
+        private void CheckLabel(VisionImage image1, VisionImage image2)
+        {
+            #region 真空加视觉检测
+            CheckLabelTask = Task<string>.Factory.StartNew(() =>
+            {
+                string nzHabelLabel = string.Empty;
+                try
+                {
+                    bool image1Caled = false;
+                    bool image2Caled = false;
+                    for (uint nz = 0; nz < Variable.NOZZLE_NUM; ++nz)
+                    {
+                        if (this.Z_RunParamMap[nz].RUN_LasteDownVisionED == 3)
+                        {
+                            this.Z_RunParamMap[nz].RUN_LasteDownVisionED = 0;
+                            bool haveLabel = false;
+                            if (!haveLabel) // 没真空感应
+                            {
+                                int offset = 0;
+                                var image = image1;
+                                bool caled = image1Caled;
+                                if (nz == 1 || nz == 3)
+                                    offset += 600;
+
+                                if (nz == 2 || nz == 3)
+                                {
+                                    image = image2;
+                                    caled = image2Caled;
+                                }
+
+                                if (this.Z_RunParamMap[nz].RUN_LastFeederIndex > 0)
+                                    haveLabel = this.LabelAreaCheck(
+                                        ref this.Feeder[this.Z_RunParamMap[nz].RUN_LastFeederIndex - 1].Label
+                                        , image
+                                        , nz
+                                        , caled
+                                        , offset);
+
+                                if (nz == 2 || nz == 3)
+                                    image2Caled = true;
+                                else
+                                    image1Caled = true;
+
+                            }
+
+                            if (haveLabel)
+                            {
+                                nzHabelLabel += $"吸嘴{nz + 1},";
+                                JOB.PASTEInfo[this.Z_RunParamMap[nz].RUN_LastPasteIndex].iPasteED[this.Z_RunParamMap[nz].RUN_LastPastePoint] = 0;
+                            }
+                        }
+                    }
+
+                    image1?.Dispose();
+                    image2?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    image1?.Dispose();
+                    image2?.Dispose();
+                }
+
+                LightOFF_D();
+                return nzHabelLabel;
+            });
+
+            #endregion
+        }
+
+        #endregion
+
         #region 线程及线程使用的函数
         private void thread_Main()//主流程//自动流程
         {
@@ -19446,8 +19531,7 @@ namespace GeneralLabelerStation
                     {
                         if (this.Z_RunParamMap[i].bAxisServoWarning)
                         {
-                            alarm = string.Format("Z{0}", i + 1);
-                            break;
+                            alarm = string.Format("Z{0}", i + 1); break;
                         }
 
                         if(this.R_RunParamMap[i].bAxisServoWarning)
@@ -19462,6 +19546,7 @@ namespace GeneralLabelerStation
                         Thread.Sleep(1000);
                         continue;
                     }
+
                     #endregion
                     #region 检测是否到达极限
                     if (X.bPosLimit || X.bNegLimit)
@@ -20995,75 +21080,6 @@ namespace GeneralLabelerStation
                 }
             }
         }//
-        public Task<string> CheckLabelTask = null;
-        private void CheckLabel(VisionImage image1, VisionImage image2)
-        {
-            #region 真空加视觉检测
-            CheckLabelTask = Task<string>.Factory.StartNew(() =>
-            {
-                string nzHabelLabel = string.Empty;
-                try
-                {
-                    bool image1Caled = false;
-                    bool image2Caled = false;
-                    for (uint nz = 0; nz < Variable.NOZZLE_NUM; ++nz)
-                    {
-                        if (this.Z_RunParamMap[nz].RUN_LasteDownVisionED == 3)
-                        {
-                            this.Z_RunParamMap[nz].RUN_LasteDownVisionED = 0;
-                            bool haveLabel = false;// this.Z_RunParamMap[nz].Check_vaccum.GetIO();
-                            if (!haveLabel) // 没真空感应
-                            {
-                                int offset = 0;
-                                var image = image1;
-                                bool caled = image1Caled;
-                                if (nz == 1 || nz == 3)
-                                    offset += 600;
-
-                                if (nz == 2 || nz == 3)
-                                {
-                                    image = image2;
-                                    caled = image2Caled;
-                                }
-
-                                if (this.Z_RunParamMap[nz].RUN_LastFeederIndex > 0)
-                                    haveLabel = this.LabelAreaCheck(
-                                        ref this.Feeder[this.Z_RunParamMap[nz].RUN_LastFeederIndex - 1].Label
-                                        , image
-                                        , nz
-                                        , caled
-                                        , offset);
-
-                                if (nz == 2 || nz == 3)
-                                    image2Caled = true;
-                                else
-                                    image1Caled = true;
-
-                            }
-
-                            if (haveLabel)
-                            {
-                                nzHabelLabel += $"吸嘴{nz + 1},";
-                                JOB.PASTEInfo[this.Z_RunParamMap[nz].RUN_LastPasteIndex].iPasteED[this.Z_RunParamMap[nz].RUN_LastPastePoint] = 0;
-                            }
-                        }
-                    }
-
-                    image1?.Dispose();
-                    image2?.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    image1?.Dispose();
-                    image2?.Dispose();
-                }
-
-                LightOFF_D();
-                return nzHabelLabel;
-            });
-
-            #endregion
-        }
 
         /// <summary>
         /// 轨道吸/吹气

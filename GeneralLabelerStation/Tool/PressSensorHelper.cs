@@ -118,6 +118,7 @@ namespace GeneralLabelerStation.Tool
             {
                 lock (this.sendLock)
                 {
+                    this.Socket?.Dispose();
                     IPAddress iPAddress = IPAddress.Parse(this.SensorIP);
                     IPEndPoint iPEnd = new IPEndPoint(iPAddress, this.SensorProt);
                     this.Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -145,6 +146,7 @@ namespace GeneralLabelerStation.Tool
                         this.Socket.Disconnect(false);
                         Thread.Sleep(100);
                         this.Socket.Dispose();
+                        this.Socket = null;
                     }
                     catch { }
                 }
