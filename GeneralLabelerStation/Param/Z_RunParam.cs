@@ -243,12 +243,12 @@ namespace GeneralLabelerStation.Param
 
         #region 抛料相关
         /// <summary>
-        /// 抛料次数
+        /// 累计抛料次数
         /// </summary>
         public int ThrowLabelCount { get; set; } = 0;
 
         /// <summary>
-        /// 吸嘴连续抛料报警
+        /// 吸嘴抛料次数
         /// </summary>
         public int ThrowWarningCount { get; set; } = 0;
 

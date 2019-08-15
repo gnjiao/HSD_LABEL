@@ -29,10 +29,10 @@
         private void InitializeComponent()
         {
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.bCancel = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.tPWD = new System.Windows.Forms.TextBox();
             this.bOK = new System.Windows.Forms.Button();
-            this.bCancel = new System.Windows.Forms.Button();
             this.tableLayoutPanel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -53,6 +53,17 @@
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tableLayoutPanel1.Size = new System.Drawing.Size(400, 100);
             this.tableLayoutPanel1.TabIndex = 0;
+            // 
+            // bCancel
+            // 
+            this.bCancel.BackColor = System.Drawing.Color.Yellow;
+            this.bCancel.Location = new System.Drawing.Point(3, 53);
+            this.bCancel.Name = "bCancel";
+            this.bCancel.Size = new System.Drawing.Size(78, 44);
+            this.bCancel.TabIndex = 3;
+            this.bCancel.Text = "取消";
+            this.bCancel.UseVisualStyleBackColor = false;
+            this.bCancel.Click += new System.EventHandler(this.bCancel_Click);
             // 
             // label1
             // 
@@ -85,17 +96,6 @@
             this.bOK.Text = "确认";
             this.bOK.UseVisualStyleBackColor = false;
             this.bOK.Click += new System.EventHandler(this.bOK_Click);
-            // 
-            // bCancel
-            // 
-            this.bCancel.BackColor = System.Drawing.Color.Yellow;
-            this.bCancel.Location = new System.Drawing.Point(3, 53);
-            this.bCancel.Name = "bCancel";
-            this.bCancel.Size = new System.Drawing.Size(78, 44);
-            this.bCancel.TabIndex = 3;
-            this.bCancel.Text = "取消";
-            this.bCancel.UseVisualStyleBackColor = false;
-            this.bCancel.Click += new System.EventHandler(this.bCancel_Click);
             // 
             // fmPasswdCheck
             // 

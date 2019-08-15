@@ -6,6 +6,12 @@ using System.Threading.Tasks;
 
 namespace GeneralLabelerStation.ServiceMonitor
 {
+    public enum ServiceType
+    {
+        TimeSpan,
+        Times,
+    }
+
     /// <summary>
     /// 寿命管控项
     /// </summary>

@@ -340,12 +340,6 @@
     <Compile Include="UI\frmPressEdit.Designer.cs">
       <DependentUpon>frmPressEdit.cs</DependentUpon>
     </Compile>
-    <Compile Include="UI\frm_SetMaintain.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="UI\frm_SetMaintain.Designer.cs">
-      <DependentUpon>frm_SetMaintain.cs</DependentUpon>
-    </Compile>
     <Compile Include="ViewModule\GlobalMarkModule.cs" />
     <Compile Include="Tool\Config\AlarmUpload_Config.cs" />
     <Compile Include="Tool\FeederHelper.cs" />
@@ -475,9 +469,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="UI\frmPressEdit.resx">
       <DependentUpon>frmPressEdit.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="UI\frm_SetMaintain.resx">
-      <DependentUpon>frm_SetMaintain.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="app.config">
       <SubType>Designer</SubType>

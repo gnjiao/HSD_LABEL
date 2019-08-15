@@ -69,7 +69,6 @@ namespace GeneralLabelerStation.IO
                     }
                 }
 
-
                 #region Feeder 状态
                 Form_Main.Instance.bArr_IO_IN_Status.bIN_AfterRequest = Card[5].bArrIO_In[0];// R2.bArrIO_In[0];
                 Form_Main.Instance.bArr_IO_IN_Status.bIN_Conveyor_BeforeReady = Card[5].bArrIO_In[1];// R2.bArrIO_In[1];

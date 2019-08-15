@@ -1217,6 +1217,95 @@ namespace GeneralLabelerStation
 
         #endregion
 
+
+        #region 报警功能
+        public enum AlarmLevel
+        {
+            Tips,
+            /// <summary>
+            /// 只提示记录,不记录报警率
+            /// </summary>
+            Warn,
+
+            /// <summary>
+            /// 提示并记录报警率
+            /// </summary>
+            Alarm,
+
+            /// <summary>
+            /// 只能暂停不允许继续
+            /// </summary>
+            Err,
+        }
+
+        /// <summary>
+        /// 当前panel是否报警过
+        /// </summary>
+        private bool PanelAlarmed = false;
+ 
+
+        public short AlarmInfoInvoke(string alarmInfo, AlarmLevel level = AlarmLevel.Alarm)
+        {
+            return (short)this.Invoke(new Func<short>(() => {
+                return this.AlarmInfo(alarmInfo, level);
+            }));
+        }
+
+        private short AlarmInfo(string alarmInfo, AlarmLevel level)//报警提示
+        {
+            RUN_AlarmInfo[0] = 1;
+
+            if(level <= AlarmLevel.Tips)
+            {
+                StatisticsHelper.Instance.Reoprt.Start(TimeDefine.PauseTime, alarmInfo);
+            }
+            else
+            {
+                StatisticsHelper.Instance.Reoprt.Start(TimeDefine.DTTime, alarmInfo);
+                ZDTHelper.Instance.UpdateAlarmMessage(alarmInfo);
+                PutInLog(Variable.sPath_ZDTMESLog, "报警", alarmInfo);
+
+                if(level >= AlarmLevel.Alarm)
+                {
+                    StatisticsHelper.Instance.Reoprt.Total.AlarmPcsCount += 1;
+                    if (!PanelAlarmed)
+                    {
+                        StatisticsHelper.Instance.Reoprt.Total.AlaramPanelCount += 1;
+                        PanelAlarmed = true;
+                    }
+                }
+            }
+
+            DialogResult aa = MessageBox.Show(alarmInfo, "提示", MessageBoxButtons.RetryCancel);
+
+            if(level >= AlarmLevel.Err)
+            {
+                this.bAutoSinglePause_Click(this, new EventArgs());
+                if(alarmInfo.Contains("有沾料"))
+                {
+                    Task.Factory.StartNew(() =>
+                    {
+                        bool rtn = this.All_ZGoSafeTillStop(5000, VariableSys.VelMode_Current_Manual);
+                        short rtn1 = 0;
+                        if (rtn) rtn1 += this.XYGoPosTillStop(5000, VariableSys.pReadyPoint, VariableSys.VelMode_Current_Manual);
+                        this.Turn.GoPosTillStop(5000, VariableSys.dTurnPasteAngle, VariableSys.VelMode_Current_Manual);
+                    });
+                }
+            }
+            else
+            {
+                if (aa == DialogResult.Retry)
+                    StatisticsHelper.Instance.Reoprt.Start(TimeDefine.ProductTime, "异常处理完成");
+                else
+                    this.bAutoSinglePause_Click(this, new EventArgs());
+            }
+
+            RUN_AlarmInfo[0] = 0;
+            RestartStopwatch();
+            return 0;
+        }
+        #endregion
+
         public Form_Main()
         {
             AxisOffsetItem.VisionDetect += AxisOffsetItem_VisionDetect;
@@ -6316,12 +6405,10 @@ namespace GeneralLabelerStation
                 Algorithms.Multiply(image, vaPixelValue, image);
                 PixelValue vaPixelValue2 = SetPixelValue(image.Type, (float)OffsetValue, 0, 0, 0);
                 Algorithms.Subtract(image, vaPixelValue2, image);
-                // Conversion: Shift 16 to 8 - Converts an image to 8 bit by shifting the pixels values.
                 Algorithms.Cast(image, image, ImageType.U8, -1);
             }
             catch
             {
-
             }
             return image;
         }
@@ -8335,12 +8422,13 @@ namespace GeneralLabelerStation
             }
         }
 
-        private short StopAllAxis()
+        private short StopAllAxis(bool stopTurn = true)
         {
             short rtn = 0;
             rtn = X.Stop(false);
             rtn += Y.Stop(false);
-            rtn += Turn.Stop(false);
+            if (stopTurn)
+                rtn += Turn.Stop(false);
             return rtn;
         }
 
@@ -11241,7 +11329,24 @@ namespace GeneralLabelerStation
                 MessageBox.Show("待 Z1Z2 复位到安全位置停止后再启动", "提示");
                 return;
             }
-           
+
+            foreach (CAM cam in Enum.GetValues(typeof(CAM)))
+            {
+                if (cam == CAM.Bottom1 || cam == CAM.Bottom2)
+                {
+                    try
+                    {
+                        CameraDefine.Instance[cam]._Session.Acquisition.Unconfigure();
+                        CameraDefine.Instance[cam]._Session.ConfigureGrab();
+                    }
+                    catch
+                    {
+                        MessageBox.Show($"${cam} 相机打开失败!!! 请检查软件内存");
+                        return;
+                    }
+                }
+            }
+
             gB_FeederLeft.Enabled = false;
             gB_FeederRight.Enabled = false;
             gB_Reset.Enabled = false;
@@ -11284,19 +11389,6 @@ namespace GeneralLabelerStation
                 }
             }
 
-            StatisticsHelper.Instance.Reoprt.Start(TimeDefine.ProductTime, $"生产[{VariableSys.sProgramName}]");
-            foreach (CAM cam in Enum.GetValues(typeof(CAM)))
-            {
-                if (cam == CAM.Bottom1 || cam == CAM.Bottom2)
-                {
-                    if (CameraDefine.Instance.Config.ContainsKey(cam))
-                    {
-                        CameraDefine.Instance[cam]._Session.Acquisition.Unconfigure();
-                        CameraDefine.Instance[cam]._Session.ConfigureGrab();
-                    }
-                }
-            }
-
             CycleStop = this.bCycleStop.Checked;
             CycleRun = this.cbCycleRun.Checked;
             if(this.FlowIndex_Conveyor == 100)
@@ -11305,6 +11397,7 @@ namespace GeneralLabelerStation
             if (this.FlowIndex_Conveyor != 100 && this.T_ConveyorIsRun) // 继续激活轨道 根据上一次暂停前状态
                 ConveyorJog(this.T_ConveyorRunDir);
 
+            StatisticsHelper.Instance.Reoprt.Start(TimeDefine.ProductTime, $"生产[{VariableSys.sProgramName}]");
             RunMode = 1;
             
             this.OpenBtnLight(3);
@@ -11375,7 +11468,7 @@ namespace GeneralLabelerStation
                 if (MessageBox.Show("翻转头 是否 在安全位置!!", "提示", MessageBoxButtons.YesNo) == DialogResult.Yes)
                 {
                     JOB.bCalMark = false;
-                    this.panelAlarmed = false;
+                    this.PanelAlarmed = false;
 
                     #region 回原点
                     //轨道停止
@@ -11450,7 +11543,7 @@ namespace GeneralLabelerStation
             }
             if (MessageBox.Show("是否开始清料!", "提示", MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
-                this.panelAlarmed = false;
+                this.PanelAlarmed = false;
                 #region 清零
                 RUN_bPasteOK = false;
                 RUN_bReachOK = false;
@@ -14151,7 +14244,7 @@ namespace GeneralLabelerStation
 
         private void bSavePasteInfo_Click(object sender, EventArgs e)
         {
-            if (!PasswdCheck()) return;
+            //if (!PasswdCheck()) return;
 
             PasteInfo.BaseAngle = (double)this.baseAngle.Value;
             WriteXls2Data_Paste(Variable.sPath_SYS_PASTE + "\\" + PasteInfo.PasteName);
@@ -14739,7 +14832,7 @@ namespace GeneralLabelerStation
 
         private void bSaveLabelInfo_Click(object sender, EventArgs e)
         {
-            if (!PasswdCheck()) return;
+            //if (!PasswdCheck()) return;
 
             WriteXls2Data_Label(Variable.sPath_SYS_LABEL + "\\" + PasteInfo.PasteName);
             bSaveLabelInfo.BackColor = Color.GreenYellow;
@@ -17290,6 +17383,7 @@ namespace GeneralLabelerStation
         public delegate short VoidDO();//通用代理
         public delegate short VoidDO_Str(string str);//通用代理
 
+
         private short iCommandReSendTime = 0;//轴卡指令连续发送次数
         private short iGG_rtn = 0;//轴卡反馈
         private short SuckTime = 0;//吸取次数
@@ -17480,7 +17574,8 @@ namespace GeneralLabelerStation
                         }
                     }
                     IO.IOManager.Instance.FDReInputLabel[i_fd] = false;
-                    Thread.Sleep(feeder.Delay);
+                    if(this.RUN_XIIndex > 0)
+                        Thread.Sleep(feeder.Delay);
                     #endregion
                 }
 
@@ -17489,7 +17584,7 @@ namespace GeneralLabelerStation
                     if ((DateTime.Now - IO.IOManager.Instance.FDMonitor[i_fd]).TotalMilliseconds > VariableSys.iTimeOut_Feeder) // 是否超时
                     {
                         string tt = i_fd > 0 ? "右Feeder" : "左Feeder";
-                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"步骤[贴标]10010:{tt} 上无料或者卡料请检查!!!" });
+                        this.AlarmInfoInvoke($"步骤[贴标]10010:{tt} 上无料或者卡料请检查!!!", AlarmLevel.Tips);
                         return false;
                     }
                     XI_Index++;
@@ -17500,7 +17595,7 @@ namespace GeneralLabelerStation
 
                     if (XIPOINT_.X < VariableSys.dXSafeMinX || XIPOINT_.X > VariableSys.dXSafeMaxX) // 超出吸标区域直接不去吸
                     {
-                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]10010:吸标区域超出安全区域,请检查行程是否足够!!" });//
+                        this.AlarmInfoInvoke("步骤[贴标]10010:吸标区域超出安全区域,请检查行程是否足够!!", AlarmLevel.Warn);
                         FlowInit = false;
                         FlowDoneIndex = FlowIndex;
                         this.FlowIndex = 10015;
@@ -17560,7 +17655,7 @@ namespace GeneralLabelerStation
             }
 
             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Feeder)
-                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]10010:动作到位超时请检查伺服是否丢脉冲或者报警" });//
+                this.AlarmInfoInvoke("步骤[贴标]10010:动作到位超时请检查伺服是否丢脉冲或者报警", AlarmLevel.Warn);
 
             if (FlowIndex != 10010)
                 this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]10010:出标到位且XY到Feeder吸料位置:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
@@ -17596,18 +17691,9 @@ namespace GeneralLabelerStation
             }
 
             //10011
-            if (FlowInit == false)
+            if (!FlowInit)
             {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    FlowIndex_Name = "NZ Go to Suck height";
-                }
-                else
-                {
-                    FlowIndex_Name = "吸嘴到 到吸料高度";
-                }
-
-
+                FlowIndex_Name = "吸嘴到 到吸料高度";
                 RestartStopwatch();
                 FlowInit = true;
                 iCommandReSendTime = 0;
@@ -17639,15 +17725,12 @@ namespace GeneralLabelerStation
                     zParam2.GoPos(zParam2.RUN_ZPos, VariableSys.VelMode_Current);
                 }
             }
-            if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-            {
-                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]10011:Z1 到吸料高度超时" });//
-            }
-            if (FlowIndex != 10011)
-            {
-                this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]10011:Z1 到吸料高度时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-            }
 
+            if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
+                this.AlarmInfoInvoke("步骤[贴标]10011:Z1 到吸料高度超时", AlarmLevel.Warn);
+
+            if (FlowIndex != 10011)
+                this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]10011:Z1 到吸料高度时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
             return true;
         }
 
@@ -17703,14 +17786,10 @@ namespace GeneralLabelerStation
                 }
             }
             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-            {
-                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]10013:Z1 到安全高度超时" });//
-            }
+                this.AlarmInfoInvoke("步骤[贴标]10013:Z1 到安全高度超时", AlarmLevel.Warn);
 
             if (FlowIndex != 10013)
-            {
                 this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]10013:Z1 到安全高度时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-            }
 
             return true;
         }
@@ -17873,7 +17952,7 @@ namespace GeneralLabelerStation
                     Z_RunParamMap[0].CaptureImage?.Dispose();
                     Z_RunParamMap[1].CaptureImage?.Dispose();
 
-                    Z_RunParamMap[0].CaptureImage = CameraDefine.Instance[CAM.Bottom1]._Session.Grab(null, false);
+                    Z_RunParamMap[0].CaptureImage = CameraDefine.Instance[CAM.Bottom1]._Session.Grab(null, true);
                     Z_RunParamMap[1].CaptureImage = new VisionImage();
                     Algorithms.Copy(Z_RunParamMap[0].CaptureImage, Z_RunParamMap[1].CaptureImage);
                 }
@@ -17891,7 +17970,7 @@ namespace GeneralLabelerStation
                 {
                     Z_RunParamMap[2].CaptureImage?.Dispose();
                     Z_RunParamMap[3].CaptureImage?.Dispose();
-                    Z_RunParamMap[2].CaptureImage = CameraDefine.Instance[CAM.Bottom2]._Session.Grab(null, false);
+                    Z_RunParamMap[2].CaptureImage = CameraDefine.Instance[CAM.Bottom2]._Session.Grab(null, true);
                     Z_RunParamMap[3].CaptureImage = new VisionImage();
                     Algorithms.Copy(Z_RunParamMap[2].CaptureImage, Z_RunParamMap[3].CaptureImage);
                 }
@@ -17912,7 +17991,7 @@ namespace GeneralLabelerStation
             }
             catch (VisionException ex)
             {
-                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"单拍-取图异常 相机掉线!!!" });//
+                this.AlarmInfoInvoke($"单拍-取图异常 相机掉线!!!{ex.Message}", AlarmLevel.Warn);
             }
 
             this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]:拍照时间" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
@@ -17973,10 +18052,9 @@ namespace GeneralLabelerStation
                 if (!this.TurnReach(VariableSys.dTurnXIAngle))
                     TurnGo(VariableSys.dTurnXIAngle, VariableSys.VelMode_Current);
             }
+
             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-            {
-                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]20210:XY到抛料点超时" });//
-            }
+                this.AlarmInfoInvoke("步骤[贴标]20210:XY到抛料点超时", AlarmLevel.Warn);
 
             if (FlowIndex != 20211)
             {
@@ -18074,9 +18152,7 @@ namespace GeneralLabelerStation
             }
 
             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-            {
-                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]20211:Z1 到贴料高度超时" });//
-            }
+                this.AlarmInfoInvoke("步骤[贴标]20211:Z1 到贴料高度超时", AlarmLevel.Warn);
 
             if (FlowIndex != 20212)
             {
@@ -18095,26 +18171,16 @@ namespace GeneralLabelerStation
             // 20213
             if (!FlowInit)
             {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    FlowIndex_Name = "Z1 go safe height";
-                }
-                else
-                {
-                    FlowIndex_Name = "Z1 到安全高度";
-                }
+                FlowIndex_Name = "到安全高度";
 
                 this.All_ZGoSafe(VariableSys.VelMode_Current);
 
                 for (int i = 0; i < DropList.Count; ++i)
-                {
                     StatisticsHelper.Instance.Reoprt.DropPCS(DropList[i]);
-                }
 
                 ZDTHelper.Instance.UpdateProdctRejectMessage();
                 RestartStopwatch();
                 FlowInit = true;
-
             }
             else
             {
@@ -18131,12 +18197,6 @@ namespace GeneralLabelerStation
                             JOB.PASTEInfo[zParam.RUN_PasteInfoIndex].iPasteED[zParam.RUN_PastePointIndex] = 0;
 
                         zParam.RUN_bNozzleUse = false;
-
-                        if (VariableSys.bEnableVaccumCheck)
-                        {
-                            Thread.Sleep(100);
-                            zParam.XI_vaccum.SetIO();
-                        }
                     }
 
                     bUpdateChart = true;
@@ -18150,9 +18210,7 @@ namespace GeneralLabelerStation
                 }
             }
             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-            {
-                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]20212:Z1 到安全高度超时" });//
-            }
+                this.AlarmInfoInvoke("步骤[贴标]20212:Z1 到安全高度超时", AlarmLevel.Warn);
 
             if (FlowIndex != 20213)
             {
@@ -18165,13 +18223,13 @@ namespace GeneralLabelerStation
                     {
                         haveAlam = (int)DropList[i];
                         zParam.ThrowWarningCount = 0;
+                        zParam.ThrowLabelCount = 0;
+                        zParam.SuckFailCount = 0;
                     }
                 }
 
                 if (haveAlam >= 0)
-                {
-                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { string.Format("步骤[贴标]20212:Z{0} 连续抛料超过设定次数", haveAlam) });//
-                }
+                    this.AlarmInfoInvoke(string.Format("步骤[贴标]20212:Z{0} 连续抛料超过设定次数", haveAlam), AlarmLevel.Alarm);
 
                 int throwTotal = 0;
                 for (uint i = 0; i < Variable.NOZZLE_NUM; ++i)
@@ -18181,10 +18239,12 @@ namespace GeneralLabelerStation
 
                 if (throwTotal > VariableSys.iThrowAlarmAddTime)
                 {
-                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]20212:Z1 累计抛料超过设定次数" + VariableSys.iThrowAlarmAddTime.ToString() });//
+                    this.AlarmInfoInvoke(string.Format("步骤[贴标]20212:Z1 累计抛料超过设定次数" + VariableSys.iThrowAlarmAddTime.ToString(), haveAlam), AlarmLevel.Alarm);
                     for (uint i = 0; i < Variable.NOZZLE_NUM; ++i)
                     {
+                        this.Z_RunParamMap[i].ThrowWarningCount = 0;
                         this.Z_RunParamMap[i].ThrowLabelCount = 0;
+                        this.Z_RunParamMap[i].SuckFailCount = 0;
                     }
                 }
 
@@ -18224,7 +18284,7 @@ namespace GeneralLabelerStation
                 RUN_PastePoint = this.CalPastePoint(zIndex, angle);
                 if (RUN_PastePoint.X < VariableSys.dXSafeMinX || RUN_PastePoint.X > VariableSys.dXSafeMaxX)
                 {
-                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "X轴贴服位置超过安全位置 请检查 选择的贴标吸嘴" });//
+                    this.AlarmInfoInvoke("X轴贴服位置超过安全位置 请检查 选择的贴标吸嘴", AlarmLevel.Warn);
                     return false;
                 }
                 else
@@ -18261,19 +18321,18 @@ namespace GeneralLabelerStation
                 else
                 {
                     if (!rParam.bAxisIsRunning)
-                    {
                         rParam.GoPos(zParam.RUN_PasteRealAngle, VariableSys.VelMode_Current);
-                    }
+
                     if (!X.bAxisIsRunning || !Y.bAxisIsRunning)
-                    {
                         XYGoPos(RUN_PastePoint, VariableSys.VelMode_Current);
-                    }
+
+                    if (!Turn.bAxisIsRunning)
+                        this.TurnGo(VariableSys.dTurnPasteAngle, VariableSys.VelMode_Current);
                 }
             }
             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-            {
-                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]20311:XY到PASTE信息的贴附点超时" });//
-            }
+                this.AlarmInfoInvoke("步骤[贴标]20311:XY到PASTE信息的贴附点超时", AlarmLevel.Warn);
+
             if (FlowIndex != 20311)
             {
                 this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]20311:XY到PASTE信息的贴附点时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
@@ -18327,28 +18386,12 @@ namespace GeneralLabelerStation
                     zParam.GoPos(zParam.RUN_ZPos, VariableSys.VelMode_Current);
                 }
             }
+
             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-            {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "Step[Labeler] 20312:Z go to paste height timeout" });//
-                }
-                else
-                {
-                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]20312:Z 到贴料高度超时" });//
-                }
-            }
+                this.AlarmInfoInvoke("步骤[贴标]20312:Z 到贴料高度超时", AlarmLevel.Warn);
+
             if (FlowIndex != 20312)
-            {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "Step[Labeler]20312:Z go to paste height time:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                }
-                else
-                {
-                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]20312:Z 到贴料高度高度时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                }
-            }
+                this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]20312:Z 到贴料高度高度时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
             return true;
         }
 
@@ -18388,19 +18431,13 @@ namespace GeneralLabelerStation
                     zParam.CalFinished = false;
                     zParam.ThrowWarningCount = 0;
 
-                    //if (VariableSys.bEnableVacuumCheck)
-                    //{
-                    //    // 记录当前是贴附的哪一个点
-                    //    zParam.XI_vaccum.SetIO();
-                    //}
-
                     if (FeederHelper.Instance.FeederInfo[zParam.RUN_Nozzle_FeederIndex - 1].RemainCount > 0)
                         FeederHelper.Instance.FeederInfo[zParam.RUN_Nozzle_FeederIndex - 1].RemainCount--;
 
                     StatisticsHelper.Instance.Reoprt.ProductPCS(VariableSys.sProgramName);
                     if (PressSensorHelper.Instance.ShowPastePress((int)zIndex, zParam.RUN_PasteInfoIndex, zParam.RUN_PastePointIndex))
                     {
-                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"吸嘴{zIndex + 1} 连续贴附超压,请确认贴附高度!!!" });//
+                        this.AlarmInfoInvoke($"吸嘴{zIndex + 1} 连续贴附超压,请确认贴附高度!!!", AlarmLevel.Warn);
                     }
 
                     zParam.RUN_dNozzleDownVisionED = 3;
@@ -18423,28 +18460,10 @@ namespace GeneralLabelerStation
             }
 
             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-            {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "Step[Labeler]20313:Z go safe height timeout" });//
-                }
-                else
-                {
-                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]20313:Z 到安全高度超时" });//
-                }
-            }
+                this.AlarmInfoInvoke("步骤[贴标]20313:Z 到安全高度超时", AlarmLevel.Warn);
 
             if (FlowIndex != 20313)
-            {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "Step[Labeler]20313:Z go safe height time:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                }
-                else
-                {
-                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]20313:Z 到安全高度时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                }
-            }
+                this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]20313:Z 到安全高度时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
             return true;
         }
 
@@ -19292,23 +19311,25 @@ namespace GeneralLabelerStation
                         {
                             if (this.EnableAppointMark)
                             {
+                                this.AlarmInfoInvoke("Mark点 侦测失败请清料,暂停出板", AlarmLevel.Alarm);
                                 #region 手动指定Mark点
-                                short result = (short)this.Invoke(new VoidDO_Str(AlarmInfoFindMark), new object[] { "Mark点 侦测失败 是否手动指定Mark点 Yes:指定 No:忽略 Cancel:暂停" });//
-                                if (result == 1) //! 等待指定Mark
-                                {
-                                    while (this.NeedAppointMark && RunMode == 1)
-                                    {
-                                        Thread.Sleep(10);
-                                    }
+                                //short result = this.AlarmInfoInvoke("Mark点 侦测失败 是否手动指定Mark点", AlarmLevel.Alarm);
 
-                                    GlobalMark[GloablIndex].X = appointMark.X;
-                                    GlobalMark[GloablIndex].Y = appointMark.Y;
-                                    GlobalMark[GloablIndex].IsOK = true;
-                                }
-                                else //! 出板
-                                {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "Mark点 侦测失败请暂停出板" });//
-                                }
+                                //if (result == 1) //! 等待指定Mark
+                                //{
+                                //    while (this.NeedAppointMark && RunMode == 1)
+                                //    {
+                                //        Thread.Sleep(10);
+                                //    }
+
+                                //    GlobalMark[GloablIndex].X = appointMark.X;
+                                //    GlobalMark[GloablIndex].Y = appointMark.Y;
+                                //    GlobalMark[GloablIndex].IsOK = true;
+                                //}
+                                //else //! 出板
+                                //{
+                                // this.AlarmInfoInvoke("Mark点 侦测失败请暂停出板", AlarmLevel.Alarm);
+                                //}
                                 #endregion
                             }
                         }
@@ -19320,16 +19341,7 @@ namespace GeneralLabelerStation
             }
 
             if (FlowIndex != 20102)
-            {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "Step[Labeler]10290:capture Mark1 time:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                }
-                else
-                {
-                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]20102:上视觉拍照（MARK1）拍照1时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                }
-            }
+                this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]20102:上视觉拍照（MARK1）拍照1时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
         }
         #endregion
 
@@ -19414,73 +19426,70 @@ namespace GeneralLabelerStation
         #endregion
 
         #region 回拍检测
+        /// <summary>
+        /// 回拍线程
+        /// </summary>
         public Task<string> CheckLabelTask = null;
-        private void CheckLabel(VisionImage image1, VisionImage image2)
+
+        /// <summary>
+        /// 回拍图片
+        /// </summary>
+        public VisionImage[] RUN_CheckLabelImg = new VisionImage[2];
+
+        /// <summary>
+        /// 图片是否计算过
+        /// </summary>
+        public bool[] RUN_CheckLabelCaled = new bool[2];
+
+        /// <summary>
+        /// 是否有沾料
+        /// </summary>
+        /// <param name="label">视觉方法</param>
+        /// <param name="image">图片</param>
+        /// <param name="nozzle">吸嘴</param>
+        /// <returns></returns>
+        public bool LabelAreaCheck(ref Variable.PASTAE label, uint nozzle)
+        {
+            uint index = nozzle / 2;
+            if (!this.RUN_CheckLabelCaled[index])
+            {
+                this.RUN_CheckLabelImg[index] = GainOffset(this.RUN_CheckLabelImg[index], label.GainInit1, label.OffsetInit1);
+                this.RUN_CheckLabelCaled[index] = true;
+            }
+
+            int areacount = AreaCount(this.RUN_CheckLabelImg[index], VariableSys.rDownROI[(int)nozzle].ConvertToRoi(), label.iAreaOKStyle1 == 1);
+
+            if (areacount > (label.iAreaMin1 / 2))
+                return true;
+            else
+                return false;
+        }
+
+        private void CheckLabel()
         {
             #region 真空加视觉检测
             CheckLabelTask = Task<string>.Factory.StartNew(() =>
             {
                 string nzHabelLabel = string.Empty;
-                try
+                for (uint nz = 0; nz < Variable.NOZZLE_NUM; ++nz)
                 {
-                    bool image1Caled = false;
-                    bool image2Caled = false;
-                    for (uint nz = 0; nz < Variable.NOZZLE_NUM; ++nz)
+                    if (this.Z_RunParamMap[nz].RUN_LasteDownVisionED == 3
+                    && this.Z_RunParamMap[nz].RUN_LastFeederIndex > 0)
                     {
-                        if (this.Z_RunParamMap[nz].RUN_LasteDownVisionED == 3)
+                        this.Z_RunParamMap[nz].RUN_LasteDownVisionED = 0;
+                        if (this.LabelAreaCheck(
+                            ref this.Feeder[this.Z_RunParamMap[nz].RUN_LastFeederIndex - 1].Label
+                            , nz))
                         {
-                            this.Z_RunParamMap[nz].RUN_LasteDownVisionED = 0;
-                            bool haveLabel = false;
-                            if (!haveLabel) // 没真空感应
-                            {
-                                int offset = 0;
-                                var image = image1;
-                                bool caled = image1Caled;
-                                if (nz == 1 || nz == 3)
-                                    offset += 600;
-
-                                if (nz == 2 || nz == 3)
-                                {
-                                    image = image2;
-                                    caled = image2Caled;
-                                }
-
-                                if (this.Z_RunParamMap[nz].RUN_LastFeederIndex > 0)
-                                    haveLabel = this.LabelAreaCheck(
-                                        ref this.Feeder[this.Z_RunParamMap[nz].RUN_LastFeederIndex - 1].Label
-                                        , image
-                                        , nz
-                                        , caled
-                                        , offset);
-
-                                if (nz == 2 || nz == 3)
-                                    image2Caled = true;
-                                else
-                                    image1Caled = true;
-
-                            }
-
-                            if (haveLabel)
-                            {
-                                nzHabelLabel += $"吸嘴{nz + 1},";
-                                JOB.PASTEInfo[this.Z_RunParamMap[nz].RUN_LastPasteIndex].iPasteED[this.Z_RunParamMap[nz].RUN_LastPastePoint] = 0;
-                            }
+                            nzHabelLabel += $"吸嘴{nz + 1},";
+                            JOB.PASTEInfo[this.Z_RunParamMap[nz].RUN_LastPasteIndex].iPasteED[this.Z_RunParamMap[nz].RUN_LastPastePoint] = 0;
                         }
                     }
-
-                    image1?.Dispose();
-                    image2?.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    image1?.Dispose();
-                    image2?.Dispose();
                 }
 
                 LightOFF_D();
                 return nzHabelLabel;
             });
-
             #endregion
         }
 
@@ -19542,8 +19551,8 @@ namespace GeneralLabelerStation
 
                     if (alarm != string.Empty)
                     {
-                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { string.Format("{0}轴 伺服报警,请重新复位...", alarm) });
-                        Thread.Sleep(1000);
+                        this.AlarmInfoInvoke($"{alarm}轴 伺服报警,请重新复位...", AlarmLevel.Err);
+                        Thread.Sleep(200);
                         continue;
                     }
 
@@ -19561,37 +19570,22 @@ namespace GeneralLabelerStation
                     if (alarm != string.Empty)
                     {
                         StopAllAxis();
-
-                        if (VariableSys.LanguageFlag == 1)
-                        {
-                            this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { string.Format("{0} Axes Arrived Limit  ...,Pls Reset...", alarm) });
-                        }
-                        else
-                        {
-                            this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { string.Format("{0} 轴到达极限,请重新复位...", alarm) });
-                        }
-
-                        Thread.Sleep(1000);
+                        this.AlarmInfoInvoke($"{alarm} 轴到达极限,请重新复位...", AlarmLevel.Err);
+                        Thread.Sleep(200);
                         continue;
                     }
                     #endregion
+
                     #region 检测安全门是否打开
                     if (VariableSys.bSafeDoorEN)//安全门非屏蔽下
                     {
                         if (!bArr_IO_IN_Status.bIN_SafeDoor.GetIO() || !bArr_IO_IN_Status.bIN_SafeGrant.GetIO())//门打开
                         {
-                            StopAllAxis();
-                            if (VariableSys.LanguageFlag == 1)
-                            {
-                                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "SafeDoor open，Pls Close the Door then Continue to Run！" });
-                            }
-                            else
-                            {
-                                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "安全门打开，请关闭安全门后重新复位运行！" });
-                            }
+                            StopAllAxis(false);
+                            this.AlarmInfoInvoke("安全门打开，请关闭安全门后重新复位运行！", AlarmLevel.Tips);
                             FlowIndex = FlowDoneIndex;
                             FlowInit = false;
-                            Thread.Sleep(500);
+                            Thread.Sleep(200);
                             continue;
                         }
                     }
@@ -19607,7 +19601,7 @@ namespace GeneralLabelerStation
                             {
                                 if (FeederHelper.Instance.FeederInfo[i].IfAlarm)
                                 {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"Feeder{i + 1}编号: {ZDTHelper.Instance.BJZS_Config.FeederID} 缺料请上料!!!" });
+                                    this.AlarmInfoInvoke($"Feeder{i + 1}编号: {ZDTHelper.Instance.BJZS_Config.FeederID} 缺料请上料!!!", AlarmLevel.Warn);
                                     FlowIndex = FlowDoneIndex;
                                     FlowInit = false;
                                     Thread.Sleep(200);
@@ -19630,7 +19624,7 @@ namespace GeneralLabelerStation
                                  FeederHelper.Instance.MaterialList.ContainsKey(ZDTHelper.Instance.BJZS_Config.FeederID[i])
                                )
                             {
-                                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"Feeder{i + 1}编号: {ZDTHelper.Instance.BJZS_Config.FeederID[i]} 物料存放时间超出管控时间请重新上料!!!" });
+                                this.AlarmInfoInvoke($"Feeder{i + 1}编号: {ZDTHelper.Instance.BJZS_Config.FeederID[i]} 物料存放时间超出管控时间请重新上料!!!", AlarmLevel.Warn);
                                 FlowIndex = FlowDoneIndex;
                                 FlowInit = false;
                                 Thread.Sleep(200);
@@ -19647,15 +19641,7 @@ namespace GeneralLabelerStation
                         case 0://Z回安全高度 
                             if (FlowInit == false)
                             {
-                                if (VariableSys.LanguageFlag == 1)
-                                {
-                                    FlowIndex_Name = "Z1Z2 Go safe height";
-                                }
-                                else
-                                {
-                                    FlowIndex_Name = "Z1Z2回安全位置";
-                                }
-
+                                FlowIndex_Name = "Z1Z2回安全位置";
                                 RestartStopwatch();
                                 FlowInit = true;
                                 this.All_ZGoSafe(VariableSys.VelMode_Current);
@@ -19670,26 +19656,10 @@ namespace GeneralLabelerStation
                                 }
                             }
                             if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-                            {
-                                if (VariableSys.LanguageFlag == 1)
-                                {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "Step[Labeler]0:Go safe height timeout" });//
-                                }
-                                else
-                                {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]0:回安全位置超时" });//
-                                }
-                            }
+                                this.AlarmInfoInvoke("步骤[贴标]0:回安全位置超时", AlarmLevel.Warn);
                             if (FlowIndex != 0)
                             {
-                                if (VariableSys.LanguageFlag == 1)
-                                {
-                                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "Step[Labeler]0:Go safe height time:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                                }
-                                else
-                                {
-                                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]0:回安全位置时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                                }
+                                this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]0:回安全位置时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
                             }
                             break;
                         #endregion
@@ -19941,7 +19911,7 @@ namespace GeneralLabelerStation
                                     CheckLabelTask.Wait();
                                     if (CheckLabelTask.Result != string.Empty)
                                     {
-                                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"{CheckLabelTask.Result} 有沾料,请清理!!!" });//
+                                        this.AlarmInfoInvoke($"{CheckLabelTask.Result} 有沾料,请清理!!!", AlarmLevel.Err);
                                         CheckLabelTask = null;
                                         this.bUpdateChart = true;
                                         break;
@@ -19958,7 +19928,7 @@ namespace GeneralLabelerStation
                                         string message = FeederHelper.Instance.UploadMesInfo();
                                         if (!string.IsNullOrEmpty(message))
                                         {
-                                            this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "追溯系统上传数据出现问题!!!\n\r详细信息：" + message });
+                                            this.AlarmInfoInvoke("追溯系统上传数据出现问题!!!\n\r详细信息：" + message, AlarmLevel.Warn);
                                         }
                                     }
 
@@ -19971,7 +19941,7 @@ namespace GeneralLabelerStation
                                         break;
                                     }
 
-                                    this.panelAlarmed = false;
+                                    this.PanelAlarmed = false;
                                     JOB.bCalMark = false;
                                     RUN_bPasteOK = true;
                                     FlowInit = false;
@@ -20011,17 +19981,19 @@ namespace GeneralLabelerStation
                                     break;
                                 }
 
+                                #region 沾料检测
                                 if (VariableSys.bEnableVaccumCheck && CheckLabelTask != null)
                                 {
                                     CheckLabelTask.Wait();
                                     if (CheckLabelTask.Result != string.Empty)
                                     {
-                                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"{CheckLabelTask.Result} 有沾料,请清理!!!" });//
+                                        //this.AlarmInfoInvoke($"{CheckLabelTask.Result} 有沾料,请清理!!!", AlarmLevel.Err);
                                         CheckLabelTask = null;
                                         this.bUpdateChart = true;
                                         break;
                                     }
                                 }
+                                #endregion
 
                                 this.RUN_XIList.Clear();
                                 List<uint> xiLeft = new List<uint>(); // 一次可以支持2个吸嘴同吸
@@ -20196,9 +20168,7 @@ namespace GeneralLabelerStation
                                 }
 
                                 if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
-                                {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]10100: 到翻转位超时" });//
-                                }
+                                    this.AlarmInfoInvoke("步骤[贴标]10100: 到翻转位超时", AlarmLevel.Warn);
 
                                 if (FlowIndex != 10100)
                                 {
@@ -20253,7 +20223,7 @@ namespace GeneralLabelerStation
 
                                 if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
                                 {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[贴标]10101: 翻转超时" });//
+                                    this.AlarmInfoInvoke("步骤[贴标]10101: 翻转超时", AlarmLevel.Warn);
                                 }
 
                                 if (FlowIndex != 10101)
@@ -20381,9 +20351,10 @@ namespace GeneralLabelerStation
                                             #region 比较Mark 距离,是否抓错
                                             var len1 = CommonHelper.GetDist(RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark1, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark2);
                                             var len2 = CommonHelper.GetDist(newMark1, newMark2);
-                                            if (Math.Abs(len2 - len1) >= 0.5)
+                                            if (Math.Abs(len2 - len1) >= 0.3)
                                             {
-                                                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "软板Mark点识别超管控 误差>0.5mm,请检查Mark点是否抓错,重新清料再开始程序" });//
+                                                this.AlarmInfoInvoke("软板Mark点识别超管控 误差>0.3mm,请检查Mark点是否抓错,重新清料再开始程序", AlarmLevel.Err);
+                                                break;
                                             }
                                             #endregion
 
@@ -20593,7 +20564,7 @@ namespace GeneralLabelerStation
 
                                 if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
                                 {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[上视觉]20510:XY到起飞位置超时" });//
+                                    this.AlarmInfoInvoke("步骤[上视觉]20510:XY到起飞位置超时", AlarmLevel.Warn);
                                 }
                             }
                             break;
@@ -20634,7 +20605,7 @@ namespace GeneralLabelerStation
 
                                 if (StopWatch_FlowIndex.ElapsedMilliseconds > VariableSys.iTimeOut_Normal)
                                 {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[上视觉]20510:XY到终点位置超时" });//
+                                    this.AlarmInfoInvoke("步骤[上视觉]20510:XY到终点位置超时", AlarmLevel.Warn);
                                 }
                             }
                             break;
@@ -20654,7 +20625,7 @@ namespace GeneralLabelerStation
                                 }
                                 else//飞拍采集图片出错
                                 {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[上视觉]20510:采图张数不对" });//
+                                    this.AlarmInfoInvoke("步骤[上视觉]20510:采图张数不对", AlarmLevel.Err);
                                     JOB.bCalMark = false;
                                     this.FlowIndex = 20111;
                                     this.FlowInit = false;
@@ -20707,7 +20678,7 @@ namespace GeneralLabelerStation
                                     }
                                     else
                                     {
-                                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "Med对接失败，失败原因:[" + resultList.Item2 + "]" });
+                                        this.AlarmInfoInvoke("MES对接失败，失败原因:[" + resultList.Item2 + "]", AlarmLevel.Warn);
                                         RUN_bPasteOK = true;
                                         FlowDoneIndex = FlowIndex;
                                         FlowInit = false;
@@ -20741,7 +20712,7 @@ namespace GeneralLabelerStation
                                     else // 获取失败
                                     {
                                         if (ZDTHelper.Instance.JY_Config.bAlarm)
-                                            this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "条码获取失败:" + this.RUN_BadmarkCode + ":" + mesInfo });
+                                            this.AlarmInfoInvoke("条码获取失败:" + this.RUN_BadmarkCode + ":" + mesInfo, AlarmLevel.Warn);
                                         else
                                             this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "条码获取失败:" + this.RUN_BadmarkCode + ":" + mesInfo });
 
@@ -20762,7 +20733,7 @@ namespace GeneralLabelerStation
                                 else // 格式不对
                                 {
                                     if (ZDTHelper.Instance.JY_Config.bAlarm)
-                                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "条码获取格式不正确:" + this.RUN_BadmarkCode + ":" + "格式:" + ZDTHelper.Instance.SPICodeBean.BarcodeFormate });
+                                        this.AlarmInfoInvoke("条码获取格式不正确:" + this.RUN_BadmarkCode + ":" + "格式:" + ZDTHelper.Instance.SPICodeBean.BarcodeFormate, AlarmLevel.Warn);
                                     else
                                         this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "条码获取格式不正确:" + this.RUN_BadmarkCode + ":" + "格式:" + ZDTHelper.Instance.SPICodeBean.BarcodeFormate });
 
@@ -20801,7 +20772,7 @@ namespace GeneralLabelerStation
                             if (!ZDTHelper.Instance.SPICodeBean.CompareBarcode(this.RUN_TrayCode))
                             {
                                 if (ZDTHelper.Instance.BJZS_Config.DataAlarm)
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "治具条码获取不正确:" + this.RUN_BadmarkCode + ":" + "格式:" + ZDTHelper.Instance.TrayCodeBean.BarcodeFormate });
+                                    this.AlarmInfoInvoke("治具条码获取不正确:" + this.RUN_BadmarkCode + ":" + "格式:" + ZDTHelper.Instance.TrayCodeBean.BarcodeFormate, AlarmLevel.Warn);
                                 else
                                     this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "治具条码获取不正确:" + this.RUN_BadmarkCode + ":" + "格式:" + ZDTHelper.Instance.TrayCodeBean.BarcodeFormate });
 
@@ -20878,6 +20849,7 @@ namespace GeneralLabelerStation
                                     this.XYGoPos(VariableSys.pReadyPoint, VariableSys.VelMode_Current);
                                     this.TurnGo(VariableSys.dTurnPasteAngle, VariableSys.VelMode_Current);
 
+                                    // 设置打光
                                     this.SetLightAndShutter();
                                     this.FlowInit = true;
                                 }
@@ -20886,19 +20858,31 @@ namespace GeneralLabelerStation
                                     if (this.AxisReach(VariableSys.pReadyPoint)
                                         && this.TurnReach(VariableSys.dTurnPasteAngle))
                                     {
-                                        Thread.Sleep(VariableSys.iDownCamDelay);
-                                        var image1 = new VisionImage();
-                                        var image2 = new VisionImage();
-                                        image1 = CameraDefine.Instance[CAM.Bottom1]._Session.Grab(null, true);
-                                        image2 = CameraDefine.Instance[CAM.Bottom2]._Session.Grab(null, true);
+                                        Thread.Sleep(VariableSys.iDownCamDelay/2);
+                                        try
+                                        {
+                                            this.CheckLabelTask = null;
+                                            for (CAM cam = CAM.Bottom1; cam <= CAM.Bottom2; cam++)
+                                            {
+                                                this.RUN_CheckLabelCaled[(int)cam - 1] = false;
+                                                this.RUN_CheckLabelImg[(int)cam - 1]?.Dispose();
+                                                this.RUN_CheckLabelImg[(int)cam - 1] = CameraDefine.Instance[cam]._Session.Grab(null, true);
+                                            }
+                                            this.CheckLabel();
+                                        }
+                                        catch
+                                        {
+                                        }
 
-                                        this.CheckLabel(image1, image2);
                                         this.FlowIndex = 20214;
                                         this.FlowInit = false;
                                     }
 
                                     if (!this.X.bAxisIsRunning || !this.Y.bAxisIsRunning)
                                         this.XYGoPos(VariableSys.pReadyPoint, VariableSys.VelMode_Current);
+
+                                    if (!this.Turn.bAxisIsRunning)
+                                        this.TurnGo(VariableSys.dTurnPasteAngle, VariableSys.VelMode_Current);
                                 }
                             }
                             else
@@ -20946,6 +20930,7 @@ namespace GeneralLabelerStation
                                 }
                                 else // 没有找到抛料
                                 {
+                                    string alarmed = string.Empty;
                                     for (uint i = 0; i < Variable.NOZZLE_NUM; ++i)
                                     {
                                         var zParam = this.Z_RunParamMap[i];
@@ -20957,14 +20942,17 @@ namespace GeneralLabelerStation
                                             if (zParam.SuckFailCount >= VariableSys.iSuckAlarmTime)
                                             {
                                                 zParam.SuckFailCount = 0;
-                                                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { $"吸嘴{i + 1} 连续吸标失败，请检查吸标是否OK!!!" });
+                                                zParam.ThrowLabelCount = 0;
+                                                zParam.ThrowWarningCount = 0;
+                                                alarmed += $"吸嘴{i+1}";
                                             }
                                         }
                                         else
-                                        {
                                             zParam.SuckFailCount = 0;
-                                        }
                                     }
+
+                                    if(alarmed != string.Empty)
+                                        this.AlarmInfoInvoke($"{alarmed} 连续吸标失败，请检查吸标是否OK!!!", AlarmLevel.Alarm);
 
                                     this.RUN_ThrowNozzle = 0;
                                     this.FlowIndex = 10000;
@@ -21037,9 +21025,9 @@ namespace GeneralLabelerStation
                                             #region 比较Mark 距离,是否抓错
                                             var len1 = CommonHelper.GetDist(RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark1, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark2);
                                             var len2 = CommonHelper.GetDist(newMark1, newMark2);
-                                            if (Math.Abs(len2 - len1) >= 0.5)
+                                            if (Math.Abs(len2 - len1) >= 0.3)
                                             {
-                                                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "软板Mark点识别超管控 误差>0.5mm,请检查Mark点是否抓错,重新清料再开始程序" });//
+                                                this.AlarmInfoInvoke("软板Mark点识别超管控 误差>0.3mm,请检查Mark点是否抓错,重新清料再开始程序", AlarmLevel.Err);
                                             }
                                             #endregion
                                             JOB.PASTEInfo[zParam.RUN_PasteInfoIndex].TransformedPoints = TransformPointsForm2Mark_IsPaste(RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].PastePoints, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark1, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark2, newMark1, newMark2, ref JOB.PASTEInfo[zParam.RUN_PasteInfoIndex].Rotation, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].IsPastePointsAbs);
@@ -21196,7 +21184,7 @@ namespace GeneralLabelerStation
                                     Thread.Sleep(300); // 用于夹板气缸到位
                                     if (!bArr_IO_IN_Status.bIN_Carry_Move.GetIO())
                                     {
-                                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "夹板动点未感应，请检查夹板是否到位！" });
+                                        this.AlarmInfoInvoke("夹板动点未感应，请检查夹板是否到位！", AlarmLevel.Warn);
                                         break;
                                     }
 
@@ -21214,7 +21202,7 @@ namespace GeneralLabelerStation
 
                             if (FlowIndex_Conveyor == 300 && StopWatch_FlowIndex_Conveyor.ElapsedMilliseconds > 10000)
                             {
-                                this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[轨道]300:进板到位超时" });//
+                                this.AlarmInfoInvoke("步骤[轨道]300:进板到位超时", AlarmLevel.Warn);
                             }
                             break;
                         #endregion
@@ -21289,7 +21277,7 @@ namespace GeneralLabelerStation
                                     if (StopWatch_FlowIndex_Conveyor.ElapsedMilliseconds > 10000)
                                     {
                                         ConveyorStop();
-                                        this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[轨道]550:到出板口超时,请检查轨道是否卡板" });//
+                                        this.AlarmInfoInvoke("步骤[轨道]550:到出板口超时,请检查轨道是否卡板", AlarmLevel.Warn);
                                     }
                                 }
                             }
@@ -21357,7 +21345,7 @@ namespace GeneralLabelerStation
 
                                 if (VariableSys.bSystemIsOnLine && StopWatch_FlowIndex_Conveyor.ElapsedMilliseconds > 10000)
                                 {
-                                    this.Invoke(new VoidDO_Str(AlarmInfo), new object[] { "步骤[轨道]650:轨道完全出板超时" });//
+                                    this.AlarmInfoInvoke("步骤[轨道]650:轨道完全出板超时", AlarmLevel.Warn);
                                 }
                             }
                             break;
@@ -21569,14 +21557,6 @@ namespace GeneralLabelerStation
                                 this.Invoke(new VoidDO(Manual_UpCamSnap_ImageSet));
                                 TestIndex = 1;
                                 TestInit = false;
-
-                                //if (!X.bAxisIsRunning || !Y.bAxisIsRunning && AxisReach(VariableSys.pTest1.X, VariableSys.Xpos_ENC) && AxisReach(VariableSys.pTest1.Y, VariableSys.Ypos_ENC))
-                                //{
-                                //    Thread.Sleep(50);
-                                //    this.Invoke(new VoidDO(Manual_UpCamSnap_ImageSet));
-                                //    TestIndex = 1;
-                                //    TestInit = false;
-                                //}
                             }
                             break;
                         case 1:
@@ -21665,60 +21645,7 @@ namespace GeneralLabelerStation
             }
         }
 
-        /// <summary>
-        /// 当前panel是否报警过
-        /// </summary>
-        private bool panelAlarmed = false;
 
-        private short AlarmInfo(string alarmInfo)//报警提示
-        {
-            RUN_AlarmInfo[0] = 1;
-
-            if (!alarmInfo.Contains("安全门"))
-            {
-                StatisticsHelper.Instance.Reoprt.Start(TimeDefine.DTTime, alarmInfo);
-                StatisticsHelper.Instance.Reoprt.Total.AlarmPcsCount += 1;
-                if (!panelAlarmed)
-                {
-                    StatisticsHelper.Instance.Reoprt.Total.AlaramPanelCount += 1;
-                    panelAlarmed = true;
-                }
-                ZDTHelper.Instance.UpdateAlarmMessage(alarmInfo);
-                PutInLog(Variable.sPath_ZDTMESLog, "报警", alarmInfo);
-            }
-
-            DialogResult aa = MessageBox.Show(alarmInfo + ",Retry-Go on;Cancel-Pause", "Info", MessageBoxButtons.RetryCancel);
-
-            if (alarmInfo.Contains("有沾料"))
-            {
-                this.bAutoSinglePause_Click(this, new EventArgs());
-                RunMode = 2;
-
-                Task.Factory.StartNew(() =>
-                {
-                    bool rtn = this.All_ZGoSafeTillStop(5000, VariableSys.VelMode_Current_Manual);
-                    short rtn1 = 0;
-                    if (rtn) rtn1 += this.XYGoPosTillStop(5000, VariableSys.pReadyPoint, VariableSys.VelMode_Current_Manual);
-                    this.Turn.GoPosTillStop(5000, VariableSys.dTurnPasteAngle, VariableSys.VelMode_Current_Manual);
-                });
-            }
-            else
-            {
-                if (aa == DialogResult.Retry)
-                {
-                    StatisticsHelper.Instance.Reoprt.Start(TimeDefine.ProductTime, "异常处理完成");
-                }
-                else
-                {
-                    this.bAutoSinglePause_Click(this, new EventArgs());
-                    RunMode = 2;
-                }
-            }
-
-            RUN_AlarmInfo[0] = 0;
-            RestartStopwatch();
-            return 0;
-        }
 
         //todo 计时器
         private void RestartStopwatch()//主流程计时器重新启动
@@ -22160,29 +22087,6 @@ namespace GeneralLabelerStation
                 camreturn.IsOK = true;
             }
             return camreturn;
-        }
-
-        /// <summary>
-        /// 是否有沾料
-        /// </summary>
-        /// <param name="label"></param>
-        /// <param name="image"></param>
-        /// <param name="nozzle"></param>
-        /// <returns></returns>
-        public bool LabelAreaCheck(ref Variable.PASTAE label, VisionImage image, uint nozzle, bool isCaled, int dist = 0)
-        {
-            bool haveLabel = false;
-            if (!isCaled)
-                image = GainOffset(image, label.GainInit1, label.OffsetInit1);
-            int areacount = AreaCount(image, VariableSys.rDownROI[(int)nozzle].ConvertToRoi(), label.iAreaOKStyle1 == 1);
-
-            if (areacount > (label.iAreaMin1 / 2))
-            {
-                image.Overlays.Default.AddText($"吸嘴{nozzle + 1}沾料:{areacount}", new PointContour(100 + dist, 400), Rgb32Value.RedColor, new OverlayTextOptions("Consolas", 125));
-                haveLabel = true;
-            }
-
-            return haveLabel;
         }
 
         /// <summary>

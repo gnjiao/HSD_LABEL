@@ -465,7 +465,7 @@ namespace GeneralLabelerStation.UI
                     this.PasteInfoList[pcb].OffsetX_Single[pcs] += dx;
                     this.PasteInfoList[pcb].OffsetY_Single[pcs] += dy;
                     this.dGVPaste.Rows[rowIndex].Cells[5].Value = this.PasteInfoList[pcb].OffsetX_Single[pcs].ToString();
-                    this.dGVPaste.Rows[rowIndex].Cells[6].Value = this.PasteInfoList[pcb].OffsetX_Single[pcs].ToString();
+                    this.dGVPaste.Rows[rowIndex].Cells[6].Value = this.PasteInfoList[pcb].OffsetY_Single[pcs].ToString();
                     this.dGVPaste.Rows[rowIndex].DefaultCellStyle.BackColor = Color.LightGreen;
                     action.Add(new Tuple<int, int, double, double>(pcb, pcs, dx, dy));
                 }
