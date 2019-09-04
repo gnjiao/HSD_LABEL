@@ -30,6 +30,8 @@ using System.Windows.Forms;
 using WinClass;
 using GeneralLabelerStation.Camera;
 using GeneralLabelerStation.HalconVision;
+using HalconDotNet;
+using GeneralLabelerStation.ServiceMonitor;
 
 namespace GeneralLabelerStation
 {
@@ -1349,7 +1351,7 @@ namespace GeneralLabelerStation
             VariableSys.bEnableGlassOffset = Ini_Sys.IniReadValue("RunOption", "EnableGlassOffset") == "True" ? true : false;
             GlassHelper.LoadJigData();
             this.ReadNozzleOffsetCofing();
-
+            SerivceMonitorHelper.Load();
             rtn = SystemInit();
 
 #if MACHINE_ZDT
@@ -1381,17 +1383,104 @@ namespace GeneralLabelerStation
             {
                 Task Thread_Main = new Task(thread_Main);
                 Task Thread_Conveyor = new Task(thread_Conveyor);
+
+                Task Thread_Light = new Task(thread_Light);
                 this.DownCaler.StartLoop();
                 this.UpCaler.StartLoop();
                 UIRefresh.Tick += UIRefresh_Tick;
-                UIRefresh.Interval = 100;
+                UIRefresh.Interval = 33;
                 UIRefresh.Start();
                 Thread_Main.Start();
                 Thread_Conveyor.Start();
+                Thread_Light.Start();
+                SerivceMonitorHelper.Instance.StartMonitor();
                 XYGoPosTillStopNoSafeHeight(30000, VariableSys.pReadyPoint, VariableSys.VelMode_Slow_Manual);
                 PressSensorHelper.Instance.SendZeroAll();
             }
         }
+
+        #region 三色灯控制
+        private void thread_Light()
+        {
+            while(!bSystemExit)
+            {
+                Thread.Sleep(100);
+                #region 三色灯-自动运行
+                if (X.bAxisEmgOn)
+                {
+                    Three_Green_OFF();
+                    Three_Yellow_ON();
+                    Three_Red_OFF();
+                }
+                else
+                {
+                    if (RunMode == 1 || Monitor.IsEntered(this.SafeDoor))
+                    {
+                        #region 运行无报警
+                        if (RUN_AlarmInfo.Sum() == 0)
+                        {
+                            Three_Noise_OFF();
+                            Three_Red_OFF();
+
+                            #region FD是否屏蔽
+                            if (this.cbLeftFD.Checked || this.cbRightFD.Checked)
+                            {
+                                Three_Yellow_ON();
+                                Three_Green_OFF();
+                            }
+                            #endregion
+                            else
+                            {
+                                // 待板绿闪
+                                if (StatisticsHelper.Instance.Reoprt.CurRecordTime == TimeDefine.WaitInputTime)
+                                {
+                                    Three_Green_ON();
+                                    Thread.Sleep(500);
+                                    Three_Green_OFF();
+                                    Thread.Sleep(400);
+                                }
+                                // 出板黄闪
+                                else if (StatisticsHelper.Instance.Reoprt.CurRecordTime == TimeDefine.WaitOuputTime)
+                                {
+                                    Three_Green_OFF();
+                                    Three_Yellow_ON();
+                                    Thread.Sleep(500);
+                                    Three_Yellow_OFF();
+                                    Thread.Sleep(400);
+                                }
+                                else
+                                {
+                                    Three_Yellow_OFF();
+                                    Three_Green_ON();
+                                }
+                            }
+                        }
+                        #endregion
+                        else
+                        #region 运行有报警
+                        {
+                            Three_Green_OFF();
+                            Three_Yellow_OFF();
+
+                            Three_Red_ON();
+                            Thread.Sleep(200);
+                            Three_Red_OFF();
+                            Thread.Sleep(100);
+                        }
+                        #endregion
+                    }
+                    else
+                    {
+                        Three_Noise_OFF();
+                        Three_Yellow_ON();
+                        Three_Green_OFF();
+                        Three_Red_OFF();
+                    }
+                }
+                #endregion
+            }
+        }
+        #endregion
 
         private Tuple<PointF, double> AxisOffsetItem_VisionDetect(short arg1, short arg2)
         {
@@ -6244,6 +6333,50 @@ namespace GeneralLabelerStation
             return ReturnPoints;
         }
 
+        public PointF[] MarkTransBy2Mark(PointF[] XY, PointF Mark1, PointF Mark2, PointF newMark1, PointF newMark2)
+        {
+            try
+            {
+                HTuple oldX = new HTuple();
+                oldX.Append(Mark1.X);
+                oldX.Append(Mark2.X);
+
+                HTuple oldY = new HTuple();
+                oldY.Append(Mark1.Y);
+                oldY.Append(Mark2.Y);
+
+                HTuple newX = new HTuple();
+                newX.Append(newMark1.X);
+                newX.Append(newMark2.X);
+
+                HTuple newY = new HTuple();
+                newY.Append(newMark1.Y);
+                newY.Append(newMark2.Y);
+                HTuple mat = new HTuple();
+                HOperatorSet.VectorToRigid(oldX, oldY, newX, newY, out mat);
+
+                HTuple inputX = new HTuple();
+                HTuple inputY = new HTuple();
+                HTuple outX = new HTuple();
+                HTuple outY = new HTuple();
+                PointF[] result = new PointF[XY.Length];
+                for (int i = 0; i < XY.Length; ++i)
+                {
+                    inputX.Append(XY[i].X);
+                    inputY.Append(XY[i].Y);
+                }
+                HOperatorSet.AffineTransPixel(mat, inputX, inputY, out outX, out outY);
+                for (int i = 0; i < outX.Length; ++i)
+                {
+                    result[i].X = (float)outX[i].D;
+                    result[i].Y = (float)outY[i].D;
+                }
+
+                return result;
+            }
+            catch { return null; }
+        }
+
         private PointF[] TransformPointsForm2Mark_IsPaste(PointF[] POINTS, PointF Mark1, PointF Mark2, PointF newMark1, PointF newMark2, ref double RotationValue, bool[] IsPASTE_Abs)
         {
             //double R = 0;
@@ -6253,14 +6386,7 @@ namespace GeneralLabelerStation
 
             PointF[] ReturnPoints = new PointF[POINTS.Length];
             RotationValue = getAngle(newMark1.X, newMark1.Y, newMark2.X, newMark2.Y) - getAngle(Mark1.X, Mark1.Y, Mark2.X, Mark2.Y);
-            //R = -1 * R;
-            for (int i = 0; i < POINTS.Length; i++)
-            {
-                Temp.X = POINTS[i].X + (newMark1.X - Mark1.X);
-                Temp.Y = POINTS[i].Y + (newMark1.Y - Mark1.Y);
-                PtRotate(Temp, newMark1, RotationValue, out ReturnPoints[i]);
-                ReturnPoints[i] = GlassHelper.ActPoint2MachinePoint(ReturnPoints[i]);
-            }
+            ReturnPoints = MarkTransBy2Mark(POINTS, Mark1, Mark2, newMark1, newMark2);
             return ReturnPoints;
         }
 
@@ -18229,7 +18355,7 @@ namespace GeneralLabelerStation
                 }
 
                 if (haveAlam >= 0)
-                    this.AlarmInfoInvoke(string.Format("步骤[贴标]20212:Z{0} 连续抛料超过设定次数", haveAlam), AlarmLevel.Alarm);
+                    this.AlarmInfoInvoke($"步骤[贴标]20212:Z{haveAlam+1} 连续抛料超过设定次数", AlarmLevel.Alarm);
 
                 int throwTotal = 0;
                 for (uint i = 0; i < Variable.NOZZLE_NUM; ++i)
@@ -18239,7 +18365,7 @@ namespace GeneralLabelerStation
 
                 if (throwTotal > VariableSys.iThrowAlarmAddTime)
                 {
-                    this.AlarmInfoInvoke(string.Format("步骤[贴标]20212:Z1 累计抛料超过设定次数" + VariableSys.iThrowAlarmAddTime.ToString(), haveAlam), AlarmLevel.Alarm);
+                    this.AlarmInfoInvoke($"步骤[贴标]20212:Z{haveAlam + 1}累计抛料超过设定次数", AlarmLevel.Alarm);
                     for (uint i = 0; i < Variable.NOZZLE_NUM; ++i)
                     {
                         this.Z_RunParamMap[i].ThrowWarningCount = 0;
@@ -18893,15 +19019,7 @@ namespace GeneralLabelerStation
         {
             if (!FlowInit)
             {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    FlowIndex_Name = "capture Mark1";
-                }
-                else
-                {
-                    FlowIndex_Name = "上视觉拍照（MARK1）";
-                }
-
+                FlowIndex_Name = "上视觉拍照（MARK1）";
                 RestartStopwatch();
                 FlowInit = true;
             }
@@ -18953,7 +19071,9 @@ namespace GeneralLabelerStation
                             else
                                 this.EnableAppointMark = true;
 
-                            if (this.EnableAppointMark)
+                            this.AlarmInfoInvoke("Mark 点侦测失败!!!请出板清料，重新开始!!!", AlarmLevel.Err);
+
+                            if (false)
                             {
                                 #region 手动指定Mark点
                                 short rtn = (short)this.Invoke(new VoidDO_Str(AlarmInfoFindMark), new object[] { "Mark点 侦测失败 是否手动指定Mark点 Yes:指定 No:忽略 Cancel:暂停" });//
@@ -19020,14 +19140,7 @@ namespace GeneralLabelerStation
             }
             if (FlowIndex != 20113)
             {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "Step[Labeler]10290:capture Mark1 time:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                }
-                else
-                {
-                    this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]10290:上视觉拍照（MARK1）拍照1时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
-                }
+                this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { "步骤[贴标]10290:上视觉拍照（MARK1）拍照1时间:" + StopWatch_FlowIndex.ElapsedMilliseconds.ToString() + "ms" });//
             }
 
             return true;
@@ -19269,15 +19382,7 @@ namespace GeneralLabelerStation
         {
             if (!FlowInit)
             {
-                if (VariableSys.LanguageFlag == 1)
-                {
-                    FlowIndex_Name = "capture Mark1";
-                }
-                else
-                {
-                    FlowIndex_Name = "上视觉拍照（MARK1）";
-                }
-
+                FlowIndex_Name = "上视觉拍照（MARK1）";
                 RestartStopwatch();
                 FlowInit = true;
             }
@@ -19987,7 +20092,7 @@ namespace GeneralLabelerStation
                                     CheckLabelTask.Wait();
                                     if (CheckLabelTask.Result != string.Empty)
                                     {
-                                        //this.AlarmInfoInvoke($"{CheckLabelTask.Result} 有沾料,请清理!!!", AlarmLevel.Err);
+                                        this.AlarmInfoInvoke($"{CheckLabelTask.Result} 有沾料,请清理!!!", AlarmLevel.Err);
                                         CheckLabelTask = null;
                                         this.bUpdateChart = true;
                                         break;
@@ -20286,6 +20391,9 @@ namespace GeneralLabelerStation
 
                         #region 20040-下视觉结果解析提前去--根据 拍摄方式 而定
                         case 20040://下视觉结果解析提前去
+                            if (!this.RUN_bReachOK)
+                                break;
+
                             if (!FlowInit)
                             {
                                 FlowIndex_Name = "提前到位(下视觉结果解析)";
@@ -20351,9 +20459,12 @@ namespace GeneralLabelerStation
                                             #region 比较Mark 距离,是否抓错
                                             var len1 = CommonHelper.GetDist(RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark1, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark2);
                                             var len2 = CommonHelper.GetDist(newMark1, newMark2);
-                                            if (Math.Abs(len2 - len1) >= 0.3)
+                                            double diff = Math.Abs(len2 - len1);
+                                            this.BeginInvoke(new VoidDO_Str(PutInLog), new object[] { $"软板Mark点识别管控 误差:{diff:N3}" });
+
+                                            if (diff >= 0.5)
                                             {
-                                                this.AlarmInfoInvoke("软板Mark点识别超管控 误差>0.3mm,请检查Mark点是否抓错,重新清料再开始程序", AlarmLevel.Err);
+                                                this.AlarmInfoInvoke($"软板Mark点识别超管控 {diff:N3}>0.5mm,请检查Mark点是否抓错,重新清料再开始程序", AlarmLevel.Err);
                                                 break;
                                             }
                                             #endregion
@@ -21030,6 +21141,7 @@ namespace GeneralLabelerStation
                                                 this.AlarmInfoInvoke("软板Mark点识别超管控 误差>0.3mm,请检查Mark点是否抓错,重新清料再开始程序", AlarmLevel.Err);
                                             }
                                             #endregion
+
                                             JOB.PASTEInfo[zParam.RUN_PasteInfoIndex].TransformedPoints = TransformPointsForm2Mark_IsPaste(RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].PastePoints, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark1, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].Mark2, newMark1, newMark2, ref JOB.PASTEInfo[zParam.RUN_PasteInfoIndex].Rotation, RUN_PASTEInfo[zParam.RUN_PasteInfoIndex_List].IsPastePointsAbs);
                                         }
 
@@ -22839,56 +22951,6 @@ namespace GeneralLabelerStation
 
                 this.NeedCloseLight();
 
-                #region 三色灯-自动运行
-                if (X.bAxisEmgOn)
-                {
-                    if (bAlrmIgnore)
-                    {
-                        Three_Noise_OFF();
-                    }
-                    else
-                    {
-                        Three_Noise_ON();
-                    }
-
-                    Three_Green_OFF();
-                    Three_Yellow_ON();
-                }
-                else
-                {
-                    if (RunMode == 1 || Monitor.IsEntered(this.SafeDoor))//ÔËÐÐ
-                    {
-                        if (RUN_AlarmInfo.Sum() == 0)
-                        {
-                            Three_Noise_OFF();
-                            Three_Green_ON();
-                            Three_Yellow_OFF();
-                            Three_Red_OFF();
-                        }
-                        else
-                        {
-                            if (bAlrmIgnore)
-                            {
-                                Three_Noise_OFF();
-                            }
-                            else
-                            {
-                                Three_Noise_ON();
-                            }
-                            Three_Green_OFF();
-                            Three_Yellow_OFF();
-                        }
-                    }
-                    else
-                    {
-                        Three_Noise_OFF();
-                        Three_Yellow_ON();
-                        Three_Green_OFF();
-                        Three_Red_OFF();
-                    }
-                }
-                #endregion
-
                 #region 界面显示
                 if (this.RunMode != 1)
                     ShowStatus();
@@ -22951,35 +23013,35 @@ namespace GeneralLabelerStation
                 #endregion
 
                 #region 缺料报警提示
-                if (ZDTHelper.Instance.BJZS_Config.EnableAlarmCount && ZDTHelper.Instance.EnableBJZS)
-                {
-                    for (int i = 0; i < 2; ++i)
-                    {
-                        if (FeederHelper.Instance.MaterialList.ContainsKey(ZDTHelper.Instance.BJZS_Config.FeederID[i]))
-                        {
-                            if (FeederHelper.Instance.FeederInfo[i].RemainCount < ZDTHelper.Instance.BJZS_Config.AlarmCount)
-                            {
-                                if (FeederHelper.Instance.FeederInfo[i].RemainCount <= 0)
-                                {
-                                    FeederHelper.Instance.FeederInfo[i].IfAlarm = true;
-                                }
-                                RUN_AlarmInfo[1] = 1;
-                            }
-                            else
-                            {
-                                RUN_AlarmInfo[1] = 0;
-                            }
-                        }
-                        else
-                        {
-                            RUN_AlarmInfo[1] = 1;
-                        }
-                    }
-                }
-                else
-                {
-                    RUN_AlarmInfo[1] = 0;
-                }
+                //if (ZDTHelper.Instance.BJZS_Config.EnableAlarmCount && ZDTHelper.Instance.EnableBJZS)
+                //{
+                //    for (int i = 0; i < 2; ++i)
+                //    {
+                //        if (FeederHelper.Instance.MaterialList.ContainsKey(ZDTHelper.Instance.BJZS_Config.FeederID[i]))
+                //        {
+                //            if (FeederHelper.Instance.FeederInfo[i].RemainCount < ZDTHelper.Instance.BJZS_Config.AlarmCount)
+                //            {
+                //                if (FeederHelper.Instance.FeederInfo[i].RemainCount <= 0)
+                //                {
+                //                    FeederHelper.Instance.FeederInfo[i].IfAlarm = true;
+                //                }
+                //                RUN_AlarmInfo[1] = 1;
+                //            }
+                //            else
+                //            {
+                //                RUN_AlarmInfo[1] = 0;
+                //            }
+                //        }
+                //        else
+                //        {
+                //            RUN_AlarmInfo[1] = 1;
+                //        }
+                //    }
+                //}
+                //else
+                //{
+                //    RUN_AlarmInfo[1] = 0;
+                //}
                 #endregion
 
                 //this.feederMesInfo.RefreshUIData();
@@ -25678,6 +25740,13 @@ namespace GeneralLabelerStation
         {
             this.bNzMannualOffset.BackColor = Color.Yellow;
         }
+
+        private void BSericeMonitor_Click(object sender, EventArgs e)
+        {
+            fmServiceManager fm = new fmServiceManager();
+            fm.Show();
+        }
+
         private void bMoveRotateCamXY_Click(object sender, EventArgs e)
         {
             try

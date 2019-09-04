@@ -36,19 +36,17 @@
             this.Column4 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
-            this.lMonitorValue = new System.Windows.Forms.TextBox();
-            this.lMonitor = new System.Windows.Forms.Label();
             this.tCurUse = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.tItemName = new System.Windows.Forms.TextBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.cbMonitorType = new System.Windows.Forms.ComboBox();
             this.bUpdate = new System.Windows.Forms.Button();
             this.bAdd = new System.Windows.Forms.Button();
             this.bDelete = new System.Windows.Forms.Button();
-            this.cbEnable = new System.Windows.Forms.CheckBox();
             this.bServiced = new System.Windows.Forms.Button();
+            this.lMonitor = new System.Windows.Forms.Label();
+            this.lMonitorValue = new System.Windows.Forms.TextBox();
+            this.cbEnable = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.dGVItem)).BeginInit();
             this.groupBox1.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
@@ -133,19 +131,17 @@
             this.tableLayoutPanel1.ColumnCount = 2;
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tableLayoutPanel1.Controls.Add(this.lMonitorValue, 1, 3);
-            this.tableLayoutPanel1.Controls.Add(this.lMonitor, 0, 3);
             this.tableLayoutPanel1.Controls.Add(this.tCurUse, 1, 1);
             this.tableLayoutPanel1.Controls.Add(this.label2, 0, 1);
             this.tableLayoutPanel1.Controls.Add(this.label1, 0, 0);
             this.tableLayoutPanel1.Controls.Add(this.tItemName, 1, 0);
-            this.tableLayoutPanel1.Controls.Add(this.label3, 0, 2);
-            this.tableLayoutPanel1.Controls.Add(this.cbMonitorType, 1, 2);
             this.tableLayoutPanel1.Controls.Add(this.bUpdate, 0, 5);
             this.tableLayoutPanel1.Controls.Add(this.bAdd, 1, 5);
             this.tableLayoutPanel1.Controls.Add(this.bDelete, 1, 6);
-            this.tableLayoutPanel1.Controls.Add(this.cbEnable, 1, 4);
             this.tableLayoutPanel1.Controls.Add(this.bServiced, 0, 6);
+            this.tableLayoutPanel1.Controls.Add(this.lMonitor, 0, 2);
+            this.tableLayoutPanel1.Controls.Add(this.lMonitorValue, 1, 2);
+            this.tableLayoutPanel1.Controls.Add(this.cbEnable, 1, 3);
             this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel1.Location = new System.Drawing.Point(3, 22);
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
@@ -160,23 +156,6 @@
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
             this.tableLayoutPanel1.Size = new System.Drawing.Size(261, 261);
             this.tableLayoutPanel1.TabIndex = 0;
-            // 
-            // lMonitorValue
-            // 
-            this.lMonitorValue.Location = new System.Drawing.Point(133, 93);
-            this.lMonitorValue.Name = "lMonitorValue";
-            this.lMonitorValue.Size = new System.Drawing.Size(100, 26);
-            this.lMonitorValue.TabIndex = 7;
-            this.lMonitorValue.Text = "24";
-            // 
-            // lMonitor
-            // 
-            this.lMonitor.Location = new System.Drawing.Point(3, 90);
-            this.lMonitor.Name = "lMonitor";
-            this.lMonitor.Size = new System.Drawing.Size(124, 30);
-            this.lMonitor.TabIndex = 6;
-            this.lMonitor.Text = "监控时长(小时)";
-            this.lMonitor.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // tCurUse
             // 
@@ -213,33 +192,10 @@
             this.tItemName.Size = new System.Drawing.Size(100, 26);
             this.tItemName.TabIndex = 1;
             // 
-            // label3
-            // 
-            this.label3.Location = new System.Drawing.Point(3, 60);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(124, 30);
-            this.label3.TabIndex = 4;
-            this.label3.Text = "监控类型";
-            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // cbMonitorType
-            // 
-            this.cbMonitorType.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.cbMonitorType.Enabled = false;
-            this.cbMonitorType.FormattingEnabled = true;
-            this.cbMonitorType.Items.AddRange(new object[] {
-            "时间",
-            "次数"});
-            this.cbMonitorType.Location = new System.Drawing.Point(133, 63);
-            this.cbMonitorType.Name = "cbMonitorType";
-            this.cbMonitorType.Size = new System.Drawing.Size(125, 28);
-            this.cbMonitorType.TabIndex = 5;
-            this.cbMonitorType.Text = "时间";
-            this.cbMonitorType.SelectedIndexChanged += new System.EventHandler(this.cbMonitorType_SelectedIndexChanged);
-            // 
             // bUpdate
             // 
             this.bUpdate.BackColor = System.Drawing.Color.Yellow;
+            this.bUpdate.Enabled = false;
             this.bUpdate.Location = new System.Drawing.Point(3, 153);
             this.bUpdate.Name = "bUpdate";
             this.bUpdate.Size = new System.Drawing.Size(124, 40);
@@ -270,16 +226,6 @@
             this.bDelete.UseVisualStyleBackColor = false;
             this.bDelete.Click += new System.EventHandler(this.bDelete_Click);
             // 
-            // cbEnable
-            // 
-            this.cbEnable.AutoSize = true;
-            this.cbEnable.Location = new System.Drawing.Point(133, 123);
-            this.cbEnable.Name = "cbEnable";
-            this.cbEnable.Size = new System.Drawing.Size(56, 24);
-            this.cbEnable.TabIndex = 12;
-            this.cbEnable.Text = "启用";
-            this.cbEnable.UseVisualStyleBackColor = true;
-            // 
             // bServiced
             // 
             this.bServiced.BackColor = System.Drawing.Color.Yellow;
@@ -290,6 +236,33 @@
             this.bServiced.Text = "维护OK";
             this.bServiced.UseVisualStyleBackColor = false;
             this.bServiced.Click += new System.EventHandler(this.bServiced_Click);
+            // 
+            // lMonitor
+            // 
+            this.lMonitor.Location = new System.Drawing.Point(3, 60);
+            this.lMonitor.Name = "lMonitor";
+            this.lMonitor.Size = new System.Drawing.Size(124, 30);
+            this.lMonitor.TabIndex = 6;
+            this.lMonitor.Text = "监控时长(小时)";
+            this.lMonitor.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lMonitorValue
+            // 
+            this.lMonitorValue.Location = new System.Drawing.Point(133, 63);
+            this.lMonitorValue.Name = "lMonitorValue";
+            this.lMonitorValue.Size = new System.Drawing.Size(100, 26);
+            this.lMonitorValue.TabIndex = 7;
+            this.lMonitorValue.Text = "24";
+            // 
+            // cbEnable
+            // 
+            this.cbEnable.AutoSize = true;
+            this.cbEnable.Location = new System.Drawing.Point(133, 93);
+            this.cbEnable.Name = "cbEnable";
+            this.cbEnable.Size = new System.Drawing.Size(56, 24);
+            this.cbEnable.TabIndex = 12;
+            this.cbEnable.Text = "启用";
+            this.cbEnable.UseVisualStyleBackColor = true;
             // 
             // fmServiceManager
             // 
@@ -302,7 +275,8 @@
             this.Font = new System.Drawing.Font("微软雅黑", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.Name = "fmServiceManager";
-            this.Text = "寿命管控";
+            this.Text = "耗材管控";
+            this.Load += new System.EventHandler(this.FmServiceManager_Load);
             ((System.ComponentModel.ISupportInitialize)(this.dGVItem)).EndInit();
             this.groupBox1.ResumeLayout(false);
             this.tableLayoutPanel1.ResumeLayout(false);
@@ -322,8 +296,6 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.TextBox lMonitorValue;
         private System.Windows.Forms.Label lMonitor;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.ComboBox cbMonitorType;
         private System.Windows.Forms.Button bUpdate;
         private System.Windows.Forms.Button bAdd;
         private System.Windows.Forms.Button bDelete;

@@ -1426,7 +1426,6 @@
             this.bZDT_BJ = new System.Windows.Forms.Button();
             this.bZDT_JY = new System.Windows.Forms.Button();
             this.groupBox26 = new System.Windows.Forms.GroupBox();
-            this.button3 = new System.Windows.Forms.Button();
             this.bLoadCell = new System.Windows.Forms.Button();
             this.button8 = new System.Windows.Forms.Button();
             this.button10 = new System.Windows.Forms.Button();
@@ -1497,6 +1496,7 @@
             this.pMode_Manual = new System.Windows.Forms.PictureBox();
             this.pMode_Run = new System.Windows.Forms.PictureBox();
             this.pMode_Login = new System.Windows.Forms.PictureBox();
+            this.bSericeMonitor = new System.Windows.Forms.Button();
             this.tabControl_Main.SuspendLayout();
             this.tabPage1.SuspendLayout();
             this.gbMachineState.SuspendLayout();
@@ -1763,6 +1763,7 @@
             // 
             // tabPage1
             // 
+            this.tabPage1.Controls.Add(this.bSericeMonitor);
             this.tabPage1.Controls.Add(this.bSelectPasteRegion);
             this.tabPage1.Controls.Add(this.gbMachineState);
             this.tabPage1.Controls.Add(this.panel29);
@@ -11893,19 +11894,12 @@
             // 
             // groupBox26
             // 
-            this.groupBox26.Controls.Add(this.button3);
             this.groupBox26.Controls.Add(this.bLoadCell);
             this.groupBox26.Controls.Add(this.button8);
             this.groupBox26.Controls.Add(this.button10);
             resources.ApplyResources(this.groupBox26, "groupBox26");
             this.groupBox26.Name = "groupBox26";
             this.groupBox26.TabStop = false;
-            // 
-            // button3
-            // 
-            resources.ApplyResources(this.button3, "button3");
-            this.button3.Name = "button3";
-            this.button3.UseVisualStyleBackColor = true;
             // 
             // bLoadCell
             // 
@@ -12406,6 +12400,14 @@
             this.pMode_Login.Name = "pMode_Login";
             this.pMode_Login.TabStop = false;
             this.pMode_Login.Click += new System.EventHandler(this.pMode_Login_Click);
+            // 
+            // bSericeMonitor
+            // 
+            this.bSericeMonitor.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(192)))), ((int)(((byte)(0)))));
+            resources.ApplyResources(this.bSericeMonitor, "bSericeMonitor");
+            this.bSericeMonitor.Name = "bSericeMonitor";
+            this.bSericeMonitor.UseVisualStyleBackColor = false;
+            this.bSericeMonitor.Click += new System.EventHandler(this.BSericeMonitor_Click);
             // 
             // Form_Main
             // 
@@ -13546,7 +13548,6 @@
         private System.Windows.Forms.Button bGlassCalib;
         private System.Windows.Forms.Button bOpmiztionNz;
         private System.Windows.Forms.Button button2;
-        private System.Windows.Forms.Button button3;
         private System.Windows.Forms.Button bOutput;
         private System.Windows.Forms.Button bInput;
         private System.Windows.Forms.TabPage tabPage22;
@@ -14229,6 +14230,7 @@
         private System.Windows.Forms.Label label261;
         private System.Windows.Forms.TextBox tBA_X;
         private System.Windows.Forms.Button button5;
+        private System.Windows.Forms.Button bSericeMonitor;
     }
 }
 

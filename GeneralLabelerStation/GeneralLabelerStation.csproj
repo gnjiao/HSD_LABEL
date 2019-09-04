@@ -277,8 +277,6 @@
     <Compile Include="ServiceMonitor\fmServiceManager.Designer.cs">
       <DependentUpon>fmServiceManager.cs</DependentUpon>
     </Compile>
-    <Compile Include="ServiceMonitor\MonitorTimeSpan.cs" />
-    <Compile Include="ServiceMonitor\MonitorTimes.cs" />
     <Compile Include="ServiceMonitor\SerivceMonitorHelper.cs" />
     <Compile Include="Statistics\fm_Statstics.cs">
       <SubType>Form</SubType>

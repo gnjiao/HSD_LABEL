@@ -94,7 +94,7 @@ namespace GeneralLabelerStation.IO
                     {
                         if (Form_Main.Instance.bArr_IO_IN_Status.bIN_LabelReach[i * 4 + j] > 0)
                         {
-                            if ((DateTime.Now - this.FDMonitor[i]).TotalMilliseconds > 500) // 间隔大于500ms认为新出一排料
+                            if ((DateTime.Now - this.FDMonitor[i]).TotalMilliseconds > 300) // 间隔大于500ms认为新出一排料
                                 FDReInputLabel[i] = true;
 
                             this.FDMonitor[i] = DateTime.Now;

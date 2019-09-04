@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using System.Diagnostics;
 using System.Threading;
 using GeneralLabelerStation.Common;
+using System.IO;
 
 namespace GeneralLabelerStation.Tool
 {
@@ -500,11 +501,20 @@ namespace GeneralLabelerStation.Tool
             Form_Main.Instance.Invoke(new Action(() =>
             {
                 this.ShowPasteLabel[nozzle].Text = $"Z{nozzle + 1}压力:[{press:N1}]g";
+
+                try
+                {
+                    var now = DateTime.Now;
+                    CommonHelper.CreatePath($"D://压力记录");
+                    CommonHelper.CreatePath($"D://压力记录//{ now.ToString("yyyy-MM-dd")}");
+                    File.AppendAllText($"D://压力记录//{ now.ToString("yyyy-MM-dd")}//吸嘴{nozzle + 1}压力.csv", $"{now.ToString("yyyy-MM-dd HH:mm:ss:ffff")},{press},克");
+                }
+                catch { }
+
                 if (isAlarm)
                 {
                     this.ShowPasteLabel[nozzle].BackColor = System.Drawing.Color.Red;
-                    // 显示带主界面
-                    this.Paste(Form_Main.Instance.dGVPress, press, nozzle, pcbIndex, pcsIndex);
+                    this.Paste(Form_Main.Instance.dGVPress, press, nozzle, pcbIndex, pcsIndex);// 显示带主界面
                 }
                 else
                     this.ShowPasteLabel[nozzle].BackColor = System.Drawing.Color.LightGreen;

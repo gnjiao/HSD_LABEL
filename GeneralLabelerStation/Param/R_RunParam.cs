@@ -25,7 +25,6 @@ namespace GeneralLabelerStation.Param
             this.iAxisSource = 1;
         }
 
-
         #region 运动控制相关
 
         /// <summary>

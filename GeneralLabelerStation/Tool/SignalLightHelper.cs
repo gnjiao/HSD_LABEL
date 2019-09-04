@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -10,7 +11,7 @@ namespace GeneralLabelerStation.Tool
     /// <summary>
     ///  信号灯管理
     /// </summary>
-    public class SignalLightHelper:Common.SingletionProvider<SignalLightHelper>
+    public class LightHelper:Common.SingletionProvider<LightHelper>
     {
         public enum State
         {
@@ -43,7 +44,7 @@ namespace GeneralLabelerStation.Tool
         /// <summary>
         /// 报警间隔
         /// </summary>
-        public int AlarmSpace = 500;
+        public int AlarmSpace = 100;
 
         /// <summary>
         /// 报警次数
@@ -59,6 +60,30 @@ namespace GeneralLabelerStation.Tool
         /// 报警消音
         /// </summary>
         public bool IsAlarmIgnore = false;
+
+        private void SetLight(Color color, bool open)
+        {
+            if (Color.Green == color)
+            {
+                Form_Main.Instance.Three_Green_ON();
+            }
+            else if (Color.Yellow == color)
+            {
+                Form_Main.Instance.Three_Yellow_ON();
+            }
+            else if (Color.Red == color)
+            {
+                Form_Main.Instance.Three_Red_ON();
+            }
+        }
+
+        public void SetSingalLight(Color color, bool isLong, int space)
+        {
+            Task.Factory.StartNew(() => {
+
+
+            });
+        }
  
         public void thread_Singal()
         {
@@ -70,11 +95,9 @@ namespace GeneralLabelerStation.Tool
                 {
                     case State.Pause:
                         Form_Main.Instance.Three_Yellow_ON();
-                        Thread.Sleep(100);
                         break;
                     case State.Running:
                         Form_Main.Instance.Three_Green_ON();
-                        Thread.Sleep(100);
                         break;
                     case State.Alarm:
                         if(IsAlarmIgnore)

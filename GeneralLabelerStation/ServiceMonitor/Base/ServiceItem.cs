@@ -6,16 +6,10 @@ using System.Threading.Tasks;
 
 namespace GeneralLabelerStation.ServiceMonitor
 {
-    public enum ServiceType
-    {
-        TimeSpan,
-        Times,
-    }
-
     /// <summary>
     /// 寿命管控项
     /// </summary>
-    public abstract class ServiceItem
+    public class ServiceItem
     {
         /// <summary>
         /// 启用
@@ -26,6 +20,11 @@ namespace GeneralLabelerStation.ServiceMonitor
         /// 上一次保养的时间
         /// </summary>
         public DateTime LastServiceTime = new DateTime();
+
+        /// <summary>
+        /// 可使用时长
+        /// </summary>
+        public TimeSpan Span = new TimeSpan(12, 0, 0);
 
         /// <summary>
         /// 管控项目名称
@@ -39,17 +38,17 @@ namespace GeneralLabelerStation.ServiceMonitor
         /// 是否需要维护
         /// </summary>
         /// <returns></returns>
-        public abstract bool NeedService();
-
-        /// <summary>
-        /// 说明
-        /// </summary>
-        /// <returns></returns>
-        public abstract string Remark();
+        public bool NeedService()
+        {
+            return (DateTime.Now - this.LastServiceTime) > this.Span;
+        }
 
         /// <summary>
         /// 维护
         /// </summary>
-        public abstract void Update();
+        public void Update()
+        {
+            this.LastServiceTime = DateTime.Now;
+        }
     }
 }
